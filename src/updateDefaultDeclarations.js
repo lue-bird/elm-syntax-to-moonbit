@@ -19,10 +19,6 @@ const elmSyntaxToMoonbitElmFile =
 const elmString =
     "\"\"\"\n"
     + defaultDeclarationsMoonbitFile
-        .slice(
-            defaultDeclarationsMoonbitFile.indexOf("//"),
-            defaultDeclarationsMoonbitFile.length
-        )
         .replaceAll("\\", "\\\\")
         .trim()
     + "\n\"\"\""
