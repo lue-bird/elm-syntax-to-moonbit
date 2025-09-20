@@ -10,7 +10,7 @@ import ElmSyntaxToMoonbit
 
 """module Sample exposing (..)
 
-plus2 : Int -> Int
+plus2 : Float -> Float
 plus2 n =
     n + ([ 2.0 ] |> List.sum)
 """
@@ -26,7 +26,7 @@ plus2 n =
 -->
 Ok """...
 pub fn sample_plus2(n: Double) -> Double {
-    basics_add(n, list_sum_float(@list.List::of([2.0])))
+    basics_add(n, list_sum_float(@list.of([2.0])))
 }
 """
 ```
@@ -102,8 +102,8 @@ please [report an issue](https://github.com/lue-bird/elm-syntax-to-moonbit/issue
 In the transpiled code, you will find these types:
 
 - elm `Bool` (`True` or `False`) → moonbit `Bool` (`true` or `false`), `Char` (`'a'`) → `Char` (`'a'`), `( Bool, Char )` → `( Bool, Char )`
-- elm `Int`s will be of type `Int64`. Create and match by appending `L` to any number literal or using `: Int64`
-- elm `Float`s will be of type `f64`. Create and match by using any number literal with a decimal point or using `: Double`
+- elm `Int`s will be of type `Int64`. Create and match by appending `L` to any number literal or using `Int::to_int64`/`Int64::from_int`
+- elm `Float`s will be of type `f64`. Create and match by using any number literal with a decimal point
 - elm `String`s (like `"a"`) will be of the custom type `StringString`.
   Create from literals or other string slices with (`StringString::One("a")`). Match with `your_string if string_equals_str(your_string, "some string")`
 - elm `Array`s (like `Array.fromList [ 'a' ]`) will be of type `@immut.array.Array`.
