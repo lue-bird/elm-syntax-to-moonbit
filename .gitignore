@@ -1,0 +1,18 @@
+target
+.DS_Store
+target/
+.mooncakes/
+elm-stuff
+node_modules
+.build
+dist
+elm.rs
+elmMain.js
+
+zombie
+
+# for experimentation
+/src/main.mbt
+/src/moon.pkg.json
+example-experiments
+perf.data
