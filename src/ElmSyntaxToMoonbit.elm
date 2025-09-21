@@ -2430,8 +2430,8 @@ typeConstructReferenceToCoreMoonbit reference =
             case reference.name of
                 "Order" ->
                     Just
-                        { qualification = [ "std", "cmp" ]
-                        , name = "Ordering"
+                        { qualification = []
+                        , name = "BasicsOrder"
                         , isCopy = True
                         , isShow = True
                         , isEq = True
@@ -2473,9 +2473,9 @@ typeConstructReferenceToCoreMoonbit reference =
         "Array" ->
             -- "Array" is the only possible reference.name
             Just
-                { qualification = []
-                , name = "ArrayArray"
-                , isCopy = False
+                { qualification = [ "immut", "array" ]
+                , name = "Array"
+                , isCopy = True
                 , isShow = True
                 , isEq = True
                 }
@@ -2483,9 +2483,9 @@ typeConstructReferenceToCoreMoonbit reference =
         "Dict" ->
             -- "Dict" is the only possible reference.name
             Just
-                { qualification = []
-                , name = "DictDict"
-                , isCopy = False
+                { qualification = [ "immut", "sorted_map" ]
+                , name = "SortedMap"
+                , isCopy = True
                 , isShow = True
                 , isEq = True
                 }
@@ -2493,9 +2493,9 @@ typeConstructReferenceToCoreMoonbit reference =
         "Set" ->
             -- "Set" is the only possible reference.name
             Just
-                { qualification = []
-                , name = "SetSet"
-                , isCopy = False
+                { qualification = [ "immut", "sorted_set" ]
+                , name = "SortedSet"
+                , isCopy = True
                 , isShow = True
                 , isEq = True
                 }
@@ -2863,7 +2863,7 @@ justMoonbitReferenceBool :
 justMoonbitReferenceBool =
     Just
         { qualification = []
-        , name = "bool"
+        , name = "Bool"
         , isCopy = True
         , isShow = True
         , isEq = True
@@ -2911,7 +2911,7 @@ justMoonbitReferenceChar :
 justMoonbitReferenceChar =
     Just
         { qualification = []
-        , name = "char"
+        , name = "Char"
         , isCopy = True
         , isShow = True
         , isEq = True
@@ -2928,8 +2928,8 @@ justMoonbitReferenceListList :
         }
 justMoonbitReferenceListList =
     Just
-        { qualification = []
-        , name = "ListList"
+        { qualification = [ "@list" ]
+        , name = "List"
         , isCopy = True
         , isShow = True
         , isEq = True
@@ -3792,7 +3792,7 @@ referenceToCoreMoonbit reference =
                 "isOctDigit" ->
                     Just
                         { qualification = []
-                        , name = "char_isOctDigit"
+                        , name = "char_is_oct_digit"
                         }
 
                 "isDigit" ->
@@ -7490,6 +7490,7 @@ moonbitKeywords =
         , "enumview"
         , "noraise"
         , "defer"
+        , "Error"
         , -- reserved for future use
           "module"
         , "move"
@@ -9643,14 +9644,6 @@ moonbitExpressionReferenceVariantStringStringOne =
         }
 
 
-moonbitExpressionReferenceStdRcRcNew : MoonbitExpression
-moonbitExpressionReferenceStdRcRcNew =
-    MoonbitExpressionReference
-        { qualification = [ "std", "rc", "Rc" ]
-        , name = "new"
-        }
-
-
 moonbitTypeJsonValue : MoonbitType
 moonbitTypeJsonValue =
     MoonbitTypeConstruct
@@ -10511,17 +10504,12 @@ moonbitExpressionCallCondense call =
             of
                 Just elements ->
                     MoonbitExpressionCall
-                        { called = moonbitExpressionReferenceStdRcRcNew
-                        , arguments =
-                            [ MoonbitExpressionCall
-                                { called =
-                                    MoonbitExpressionReference
-                                        { qualification = []
-                                        , name = "vec!"
-                                        }
-                                , arguments = elements
+                        { called =
+                            MoonbitExpressionReference
+                                { qualification = [ "immut", "array" ]
+                                , name = "of"
                                 }
-                            ]
+                        , arguments = elements
                         }
 
                 Nothing ->
@@ -29733,6 +29721,68 @@ pub fn[C : Compare] basics_clamp(minimum : C, maximum : C, n : C) -> C {
 pub fnalias Int64::to_double as basics_to_float
 
 ///|
+pub(all) enum BasicsNever {}
+
+///|
+pub fn[YourChoice] basics_never(ever : BasicsNever) -> YourChoice {
+  match ever {
+
+  }
+}
+
+///|
+pub fn char_to_code(char : Char) -> Int64 {
+  Int::to_int64(Char::to_int(char))
+}
+
+///|
+pub fn char_from_code(code : Int64) -> Char {
+  Option::unwrap_or(Int::to_char(Int64::to_int(code)), '\\u{0}')
+}
+
+///|
+pub fnalias Char::is_ascii_lowercase as char_is_lower
+
+///|
+pub fnalias Char::is_ascii_uppercase as char_is_upper
+
+///|
+pub fnalias Char::is_ascii_hexdigit as char_is_hex_digit
+
+///|
+pub fnalias Char::is_ascii_octdigit as char_is_oct_digit
+
+///|
+pub fnalias Char::is_ascii_digit as char_is_digit
+
+///|
+pub fnalias Char::is_ascii_alphabetic as char_is_alpha
+
+///|
+pub fn char_is_alpha_num(char : Char) -> Bool {
+  Char::is_ascii_alphabetic(char) || Char::is_ascii_digit(char)
+}
+
+///|
+pub fn char_to_lower(char : Char) -> Char {
+  Option::unwrap_or(
+    String::get_char(String::to_lower(Char::to_string(char)), 0),
+    '\\u{0}',
+  )
+}
+
+///|
+pub fn char_to_upper(char : Char) -> Char {
+  Option::unwrap_or(
+    String::get_char(String::to_upper(Char::to_string(char)), 0),
+    '\\u{0}',
+  )
+}
+
+///|
+pub typealias Result[Ok, Err] as ResultResult[Err, Ok]
+
+///|
 pub fn[A] list_singleton(only_element : A) -> @list.List[A] {
   @list.of([only_element])
 }
@@ -30099,7 +30149,12 @@ impl Show for StringString with output(self, logger) {
 
 ///|
 impl Eq for StringString with equal(self, other) {
-  string_string_to_string(self) == string_string_to_string(other)
+  String::equal(string_string_to_string(self), string_string_to_string(other))
+}
+
+///|
+impl Compare for StringString with compare(self, other) -> Int {
+  String::compare(string_string_to_string(self), string_string_to_string(other))
 }
 
 ///|
@@ -30129,6 +30184,11 @@ pub fn string_string_to_string(string : StringString) -> String {
       StringBuilder::to_string(builder)
     }
   }
+}
+
+///|
+pub fn string_from_char(char : Char) -> StringString {
+  StringString::One(Char::to_string(char))
 }
 
 ///|
