@@ -493,7 +493,17 @@ pub fn[A, B, C, D, E, Combined] list_map5(
 pub(all) enum StringString {
   One(String)
   Append(StringString, StringString)
-} derive(Show, Eq)
+}
+
+///|
+impl Show for StringString with output(self, logger) {
+  logger.write_string(string_string_to_string(self))
+}
+
+///|
+impl Eq for StringString with equal(self, other) {
+  string_string_to_string(self) == string_string_to_string(other)
+}
 
 ///|
 pub fn string_string_to_string(string : StringString) -> String {
@@ -532,4 +542,9 @@ pub fn string_to_lower(string : StringString) -> StringString {
 ///|
 pub fn string_to_upper(string : StringString) -> StringString {
   StringString::One(String::to_upper(string_string_to_string(string)))
+}
+
+///|
+pub fn string_append(left : StringString, right : StringString) -> StringString {
+  StringString::Append(left, right)
 }
