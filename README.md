@@ -49,7 +49,7 @@ pub fn sample_plus2(n: Double) -> Double {
         userId : { u | name : String, server : Domain } -> String
         ```
         In the non-allowed cases listed above, we assume that you intended to use a regular record type with only the extension fields which can lead to moonbit compile errors if you actually pass in additional fields.
-    - elm's `toLocale[Case]` functions will just behave like `toCase`
+    - elm's `Char.toLocale[Case]` functions will just behave like `Char.to[Case]`
     - elm's `VirtualDom/Html/Svg.lazyN` functions will still exist for compatibility but they will behave just like constructing them eagerly
 - dependencies cannot internally use the same module names as the transpiled project
 - the resulting code might not be readable or even conventionally formatted and comments are not preserved
