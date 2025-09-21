@@ -552,6 +552,8 @@ pub fn[A, B, C, D, E, Combined] list_map5(
 }
 
 ///|
+/// A string-rope. use `string_string_to_string` to turn it into a `String`.
+/// Only use `StringString::to_string(_)` for debugging
 pub(all) enum StringString {
   One(String)
   Append(StringString, StringString)
@@ -559,7 +561,7 @@ pub(all) enum StringString {
 
 ///|
 impl Show for StringString with output(self, logger) {
-  logger.write_string(string_string_to_string(self))
+  String::output(string_string_to_string(self), logger)
 }
 
 ///|
@@ -602,8 +604,90 @@ pub fn string_string_to_string(string : StringString) -> String {
 }
 
 ///|
+pub fn string_is_empty(string : StringString) -> Bool {
+  match string {
+    StringString::One(str) => String::is_empty(str)
+    StringString::Append(left, right) =>
+      string_is_empty(left) && string_is_empty(right)
+  }
+}
+
+///|
+pub fn string_length(string : StringString) -> Int64 {
+  Int::to_int64(string_length_int(string))
+}
+
+///|
+pub fn string_length_int(string : StringString) -> Int {
+  match string {
+    StringString::One(str) => String::length(str)
+    StringString::Append(left, right) =>
+      string_length_int(left) + string_length_int(right)
+  }
+}
+
+///|
+pub fn string_contains(needle : StringString, string : StringString) -> Bool {
+  String::contains(
+    string_string_to_string(string),
+    string_string_to_string(needle),
+  )
+}
+
+///|
+pub fn string_starts_with(needle : StringString, string : StringString) -> Bool {
+  String::has_prefix(
+    string_string_to_string(string),
+    string_string_to_string(needle),
+  )
+}
+
+///|
+pub fn string_ends_with(needle : StringString, string : StringString) -> Bool {
+  String::has_suffix(
+    string_string_to_string(string),
+    string_string_to_string(needle),
+  )
+}
+
+///|
+pub fn string_all(is_hay : (Char) -> Bool, string : StringString) -> Bool {
+  Iter::all(String::iter(string_string_to_string(string)), is_hay)
+}
+
+///|
+pub fn string_any(is_needle : (Char) -> Bool, string : StringString) -> Bool {
+  Iter::any(String::iter(string_string_to_string(string)), is_needle)
+}
+
+///|
+pub let string_empty : StringString = StringString::One("")
+
+///|
 pub fn string_from_char(char : Char) -> StringString {
   StringString::One(Char::to_string(char))
+}
+
+///|
+pub fn string_from_int(int : Int64) -> StringString {
+  StringString::One(Int64::to_string(int))
+}
+
+///|
+pub fn string_from_float(float : Double) -> StringString {
+  StringString::One(Double::to_string(float))
+}
+
+///|
+pub fn string_repeat(count : Int64, to_repeat : StringString) -> StringString {
+  StringString::One(
+    String::repeat(string_string_to_string(to_repeat), Int64::to_int(count)),
+  )
+}
+
+///|
+pub fn string_from_list(chars : @list.List[Char]) -> StringString {
+  StringString::One(String::from_array(@list.List::to_array(chars)))
 }
 
 ///|
@@ -617,6 +701,510 @@ pub fn string_to_upper(string : StringString) -> StringString {
 }
 
 ///|
+pub fn string_reverse(string : StringString) -> StringString {
+  StringString::One(String::rev(string_string_to_string(string)))
+}
+
+///|
+/// \s in https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_expressions/Cheatsheet
+let whitespacePossibilities : String = String::from_array([
+  '\n', '\r', '\f', '\t', '\u000B', ' ', '\u00a0', '\u1680', '\u2000', '\u2001',
+  '\u2002', '\u2003', '\u2004', '\u2005', '\u2006', '\u2007', '\u2008', '\u2009',
+  '\u200a', '\u2028', '\u2029', '\u202f', '\u205f', '\u3000', '\ufeff',
+])
+
+///|
+pub fn string_trim(string : StringString) -> StringString {
+  StringString::One(
+    StringView::to_string(
+      String::trim(string_string_to_string(string), whitespacePossibilities),
+    ),
+  )
+}
+
+///|
+pub fn string_trim_left(string : StringString) -> StringString {
+  StringString::One(
+    StringView::to_string(
+      String::trim_start(
+        string_string_to_string(string),
+        whitespacePossibilities,
+      ),
+    ),
+  )
+}
+
+///|
+pub fn string_trim_right(string : StringString) -> StringString {
+  StringString::One(
+    StringView::to_string(
+      String::trim_end(string_string_to_string(string), whitespacePossibilities),
+    ),
+  )
+}
+
+///|
+pub fn string_pad_left(
+  new_minimum_length : Int64,
+  padding : Char,
+  string : StringString,
+) -> StringString {
+  StringString::One(
+    StringView::to_string(
+      String::pad_start(
+        string_string_to_string(string),
+        Int64::to_int(new_minimum_length),
+        padding,
+      ),
+    ),
+  )
+}
+
+///|
+pub fn string_pad_right(
+  new_minimum_length : Int64,
+  padding : Char,
+  string : StringString,
+) -> StringString {
+  StringString::One(
+    StringView::to_string(
+      String::pad_end(
+        string_string_to_string(string),
+        Int64::to_int(new_minimum_length),
+        padding,
+      ),
+    ),
+  )
+}
+
+///|
+pub fn string_pad(
+  new_minimum_length : Int64,
+  padding : Char,
+  string : StringString,
+) -> StringString {
+  let as_string : String = string_string_to_string(string)
+  StringString::One(
+    StringView::to_string(
+      String::pad_start(
+        String::pad_end(
+          as_string,
+          (String::length(as_string) + Int64::to_int(new_minimum_length)) / 2,
+          padding,
+        ),
+        Int64::to_int(new_minimum_length),
+        padding,
+      ),
+    ),
+  )
+}
+
+///|
+pub fn string_replace(
+  to_replace : StringString,
+  replacement : StringString,
+  string : StringString,
+) -> StringString {
+  StringString::One(
+    StringView::to_string(
+      String::replace_all(
+        string_string_to_string(string),
+        old=string_string_to_string(to_replace),
+        new=string_string_to_string(replacement),
+      ),
+    ),
+  )
+}
+
+///|
+pub fn string_map(
+  char_change : (Char) -> Char,
+  string : StringString,
+) -> StringString {
+  StringString::One(
+    String::from_iter(
+      Iter::map(String::iter(string_string_to_string(string)), char_change),
+    ),
+  )
+}
+
+///|
+pub fn string_filter(
+  keep_char : (Char) -> Bool,
+  string : StringString,
+) -> StringString {
+  StringString::One(
+    String::from_iter(
+      Iter::filter(String::iter(string_string_to_string(string)), keep_char),
+    ),
+  )
+}
+
+///|
 pub fn string_append(left : StringString, right : StringString) -> StringString {
   StringString::Append(left, right)
+}
+
+///|
+pub fn string_cons(left : Char, right : StringString) -> StringString {
+  StringString::Append(StringString::One(Char::to_string(left)), right)
+}
+
+///|
+pub fn string_concat(strings : @list.List[StringString]) -> StringString {
+  @list.List::fold(strings, init=string_empty, string_append)
+}
+
+///|
+pub fn string_join(
+  in_between : StringString,
+  strings : @list.List[StringString],
+) -> StringString {
+  let in_between_as_string : StringString = StringString::One(
+    string_string_to_string(in_between),
+  )
+  match strings {
+    @list.List::Empty => string_empty
+    @list.List::More(head_string, tail=tail_strings) =>
+      @list.List::fold(tail_strings, init=head_string, fn(so_far, element) {
+        string_append(so_far, string_append(in_between_as_string, element))
+      })
+  }
+}
+
+///|
+pub fn string_uncons(string : StringString) -> (Char, StringString)? {
+  let as_string : String = string_string_to_string(string)
+  match String::get_char(as_string, 0) {
+    Option::None => Option::None
+    Option::Some(headChar) =>
+      Option::Some(
+        (
+          headChar,
+          StringString::One(
+            StringView::to_string(
+              String::sub(as_string, start=Char::utf16_len(headChar)),
+            ),
+          ),
+        ),
+      ) catch {
+        // should always work
+        _ => Option::None
+      }
+  }
+}
+
+///|
+pub fn string_left(
+  count_to_keep : Int64,
+  string : StringString,
+) -> StringString {
+  let as_string : String = string_string_to_string(string)
+  if count_to_keep <= 0 {
+    string_empty
+  } else if Int64::to_int(count_to_keep) >= String::length(as_string) {
+    string
+  } else {
+    StringString::One(
+      StringView::to_string(
+        String::sub(as_string, end=Int64::to_int(count_to_keep)),
+      ),
+    ) catch {
+      IndexOutOfBounds =>
+        // should not fail
+        string_empty
+      InvalidIndex =>
+        // end position would split a UTF-16 surrogate pair
+        // so we try the next UTF-16 offset
+        StringString::One(
+          StringView::to_string(
+            String::sub(as_string, end=Int64::to_int(count_to_keep) + 1),
+          ),
+        ) catch {
+          // should not fail
+          _ => string_empty
+        }
+    }
+  }
+}
+
+///|
+pub fn string_right(
+  count_to_keep : Int64,
+  string : StringString,
+) -> StringString {
+  let as_string : String = string_string_to_string(string)
+  let string_length : Int = String::length(as_string)
+  if count_to_keep <= 0 {
+    string_empty
+  } else if Int64::to_int(count_to_keep) >= string_length {
+    string
+  } else {
+    StringString::One(
+      StringView::to_string(
+        String::sub(
+          as_string,
+          start=string_length - Int64::to_int(count_to_keep),
+        ),
+      ),
+    ) catch {
+      IndexOutOfBounds => string_empty // should not fail
+      InvalidIndex =>
+        // end position would split a UTF-16 surrogate pair
+        // so we try the next UTF-16 offset
+        StringString::One(
+          StringView::to_string(
+            String::sub(
+              as_string,
+              start=string_length - Int64::to_int(count_to_keep) + 1,
+            ),
+          ),
+        ) catch {
+          _ => string_empty // should not fail
+        }
+    }
+  }
+}
+
+///|
+pub fn string_drop_left(
+  count_to_drop : Int64,
+  string : StringString,
+) -> StringString {
+  let as_string : String = string_string_to_string(string)
+  if count_to_drop <= 0 {
+    string
+  } else if Int64::to_int(count_to_drop) >= String::length(as_string) {
+    string_empty
+  } else {
+    StringString::One(
+      StringView::to_string(
+        String::sub(as_string, start=Int64::to_int(count_to_drop)),
+      ),
+    ) catch {
+      IndexOutOfBounds => string_empty // should not fail
+      InvalidIndex =>
+        // end position would split a UTF-16 surrogate pair
+        // so we try the next UTF-16 offset
+        StringString::One(
+          StringView::to_string(
+            String::sub(as_string, start=Int64::to_int(count_to_drop) + 1),
+          ),
+        ) catch {
+          _ => string_empty // should not fail
+        }
+    }
+  }
+}
+
+///|
+pub fn string_drop_right(
+  count_to_drop : Int64,
+  string : StringString,
+) -> StringString {
+  let as_string : String = string_string_to_string(string)
+  let string_length : Int = String::length(as_string)
+  if count_to_drop <= 0 {
+    string
+  } else if Int64::to_int(count_to_drop) >= string_length {
+    string_empty
+  } else {
+    StringString::One(
+      StringView::to_string(
+        String::sub(as_string, end=string_length - Int64::to_int(count_to_drop)),
+      ),
+    ) catch {
+      IndexOutOfBounds => string_empty // should not fail
+      InvalidIndex =>
+        // end position would split a UTF-16 surrogate pair
+        // so we try the next UTF-16 offset
+        StringString::One(
+          StringView::to_string(
+            String::sub(
+              as_string,
+              end=string_length - Int64::to_int(count_to_drop) + 1,
+            ),
+          ),
+        ) catch {
+          _ => string_empty // should not fail
+        }
+    }
+  }
+}
+
+///|
+pub fn string_slice(
+  start_inclusive : Int64,
+  end_exclusive : Int64,
+  string : StringString,
+) -> StringString {
+  let as_string : String = string_string_to_string(string)
+  let string_length : Int = String::length(as_string)
+  if Int64::to_int(start_inclusive) >= string_length ||
+    Int64::to_int(end_exclusive) <= -string_length {
+    string_empty
+  } else {
+    let valid_start_inclusive : Int = Int::max(
+      Int64::to_int(start_inclusive),
+      -string_length,
+    )
+    let valid_end_exclusive : Int = Int::min(
+      Int64::to_int(end_exclusive),
+      string_length,
+    )
+    StringString::One(
+      StringView::to_string(
+        String::sub(
+          as_string,
+          start=valid_start_inclusive,
+          end=valid_end_exclusive,
+        ),
+      ),
+    ) catch {
+      IndexOutOfBounds => string_empty // should not fail
+      InvalidIndex =>
+        // times are rough!
+        // because we don't know if the start or end char boundaries
+        // were violated (or both) so we have no choice but to try them all
+        StringString::One(
+          StringView::to_string(
+            String::sub(
+              as_string,
+              start=valid_start_inclusive,
+              end=valid_end_exclusive + 1,
+            ),
+          ),
+        ) catch {
+          IndexOutOfBounds => string_empty // should not fail
+          InvalidIndex =>
+            StringString::One(
+              StringView::to_string(
+                String::sub(
+                  as_string,
+                  start=valid_start_inclusive - 1,
+                  end=valid_end_exclusive,
+                ),
+              ),
+            ) catch {
+              IndexOutOfBounds => string_empty // should not fail
+              InvalidIndex =>
+                StringString::One(
+                  StringView::to_string(
+                    String::sub(
+                      as_string,
+                      start=valid_start_inclusive - 1,
+                      end=valid_end_exclusive + 1,
+                    ),
+                  ),
+                ) catch {
+                  // should not fail
+                  _ => string_empty
+                }
+            }
+        }
+    }
+  }
+}
+
+///|
+pub fn string_to_int(string : StringString) -> Int64? {
+  Option::Some(@strconv.parse_int64(string_string_to_string(string))) catch {
+    _ => Option::None
+  }
+}
+
+///|
+pub fn string_to_float(string : StringString) -> Double? {
+  Option::Some(@strconv.parse_double(string_string_to_string(string))) catch {
+    _ => Option::None
+  }
+}
+
+///|
+pub fn string_to_list(string : StringString) -> @list.List[Char] {
+  @list.List::from_array(String::to_array(string_string_to_string(string)))
+}
+
+///|
+pub fn string_split(
+  separator : StringString,
+  string : StringString,
+) -> @list.List[StringString] {
+  @list.List::from_iter(
+    Iter::map(
+      String::split(
+        string_string_to_string(string),
+        string_string_to_string(separator),
+      ),
+      fn(string_view) { StringString::One(StringView::to_string(string_view)) },
+    ),
+  )
+}
+
+///|
+pub fn string_lines(string : StringString) -> @list.List[StringString] {
+  @list.List::from_iter(
+    Iter::map(
+      String::split(
+        String::replace_all(
+          string_string_to_string(string),
+          old="\r\n",
+          new="\n",
+        ),
+        "\n",
+      ),
+      fn(string_view) { StringString::One(StringView::to_string(string_view)) },
+    ),
+  )
+}
+
+///|
+pub fn string_words(string : StringString) -> @list.List[StringString] {
+  string_string_to_string(string)
+  |> String::iter
+  |> Iter::map(fn(char) {
+    if String::contains_char(whitespacePossibilities, char) {
+      ' '
+    } else {
+      char
+    }
+  })
+  |> String::from_iter
+  |> String::split(" ")
+  |> Iter::filter_map(fn(string_view) {
+    if StringView::is_empty(string_view) {
+      Option::None
+    } else {
+      Option::Some(StringString::One(StringView::to_string(string_view)))
+    }
+  })
+  |> @list.List::from_iter
+}
+
+///|
+pub fn[State] string_foldl(
+  initial_state : State,
+  reduce : (Char) -> (State) -> State,
+  string : StringString,
+) -> State {
+  String::fold(string_string_to_string(string), init=initial_state, fn(
+    so_far,
+    char,
+  ) {
+    reduce(char)(so_far)
+  })
+}
+
+///|
+pub fn[State] string_foldr(
+  initial_state : State,
+  reduce : (Char) -> (State) -> State,
+  string : StringString,
+) -> State {
+  String::rev_fold(string_string_to_string(string), init=initial_state, fn(
+    so_far,
+    char,
+  ) {
+    reduce(char)(so_far)
+  })
 }
