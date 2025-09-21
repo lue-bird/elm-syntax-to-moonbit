@@ -97,13 +97,13 @@ elmModuleSourceTranspileToMoonbit source =
                                 { name : String
                                 , parameters :
                                     List
-                                        { pattern : ElmSyntaxToMoonbit.MoonbitPattern
+                                        { binding : Maybe String
                                         , type_ : ElmSyntaxToMoonbit.MoonbitType
                                         }
                                 , result : ElmSyntaxToMoonbit.MoonbitExpression
                                 , resultType : ElmSyntaxToMoonbit.MoonbitType
                                 }
-                        , consts :
+                        , lets :
                             List
                                 { name : String
                                 , result : ElmSyntaxToMoonbit.MoonbitExpression
