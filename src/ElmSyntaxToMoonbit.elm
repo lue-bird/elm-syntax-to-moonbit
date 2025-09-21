@@ -85,7 +85,7 @@ type MoonbitPattern
     | MoonbitPatternVariant
         { originTypeName : List String
         , name : String
-        , values : List MoonbitPattern
+        , values : List { label : Maybe String, pattern : MoonbitPattern }
         }
     | MoonbitPatternTuple
         { part0 : MoonbitPattern
@@ -1953,12 +1953,15 @@ moonbitPatternListEmpty =
         }
 
 
-moonbitPatternListCons : MoonbitPattern -> MoonbitPattern -> MoonbitPattern
-moonbitPatternListCons head tail =
+moonbitPatternListMore : MoonbitPattern -> MoonbitPattern -> MoonbitPattern
+moonbitPatternListMore head tail =
     MoonbitPatternVariant
         { originTypeName = [ "list", "List" ]
         , name = "More"
-        , values = [ head, tail ]
+        , values =
+            [ { label = Nothing, pattern = head }
+            , { label = Just "tail", pattern = tail }
+            ]
         }
 
 
@@ -2180,7 +2183,7 @@ pattern context patternInferred =
                     listCons.tail |> pattern context
             in
             { pattern =
-                moonbitPatternListCons moonbitHead.pattern
+                moonbitPatternListMore moonbitHead.pattern
                     moonbitTailPattern.pattern
             , guardConditions =
                 moonbitHead.guardConditions
@@ -2211,7 +2214,7 @@ pattern context patternInferred =
                             tail |> patternListExact context
                     in
                     { pattern =
-                        moonbitPatternListCons moonbitHead.pattern
+                        moonbitPatternListMore moonbitHead.pattern
                             moonbitTailPattern.pattern
                     , guardConditions =
                         moonbitHead.guardConditions
@@ -2260,7 +2263,7 @@ pattern context patternInferred =
                             }
 
                 moonbitValues :
-                    { patterns : List MoonbitPattern
+                    { patterns : List { label : Maybe String, pattern : MoonbitPattern }
                     , guardConditions : List MoonbitExpression
                     }
                 moonbitValues =
@@ -2275,7 +2278,11 @@ pattern context patternInferred =
                                     moonbitValue =
                                         variantValue |> pattern context
                                 in
-                                { patterns = moonbitValue.pattern :: soFar.patterns
+                                { patterns =
+                                    { label = Nothing
+                                    , pattern = moonbitValue.pattern
+                                    }
+                                        :: soFar.patterns
                                 , guardConditions =
                                     moonbitValue.guardConditions
                                         ++ soFar.guardConditions
@@ -2401,7 +2408,7 @@ patternListExact context elements =
                     moonbitElement =
                         element |> pattern context
                 in
-                { pattern = moonbitPatternListCons moonbitElement.pattern soFar.pattern
+                { pattern = moonbitPatternListMore moonbitElement.pattern soFar.pattern
                 , guardConditions =
                     moonbitElement.guardConditions
                         ++ soFar.guardConditions
@@ -5079,7 +5086,7 @@ printMoonbitPatternAlias moonbitPatternAlias =
 printMoonbitPatternVariant :
     { originTypeName : List String
     , name : String
-    , values : List MoonbitPattern
+    , values : List { label : Maybe String, pattern : MoonbitPattern }
     }
     -> Print
 printMoonbitPatternVariant patternVariant =
@@ -5099,7 +5106,26 @@ printMoonbitPatternVariant patternVariant =
                         |> Print.followedBy
                             ((variantValue0 :: variantValue1Up)
                                 |> Print.listMapAndIntersperseAndFlatten
-                                    printMoonbitPattern
+                                    (\variantValue ->
+                                        let
+                                            variantValuePrint : Print
+                                            variantValuePrint =
+                                                printMoonbitPattern variantValue.pattern
+                                        in
+                                        case variantValue.label of
+                                            Nothing ->
+                                                variantValuePrint
+
+                                            Just label ->
+                                                Print.exactly (label ++ "=")
+                                                    |> Print.followedBy
+                                                        (Print.withIndentAtNextMultipleOf4
+                                                            (Print.linebreakIndented
+                                                                |> Print.followedBy
+                                                                    variantValuePrint
+                                                            )
+                                                        )
+                                    )
                                     printExactlyCommaSpace
                             )
                         |> Print.followedBy printExactlyParenClosing
