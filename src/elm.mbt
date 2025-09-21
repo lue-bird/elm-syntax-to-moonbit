@@ -502,7 +502,12 @@ impl Show for StringString with output(self, logger) {
 
 ///|
 impl Eq for StringString with equal(self, other) {
-  string_string_to_string(self) == string_string_to_string(other)
+  String::equal(string_string_to_string(self), string_string_to_string(other))
+}
+
+///|
+impl Compare for StringString with compare(self, other) -> Int {
+  String::compare(string_string_to_string(self), string_string_to_string(other))
 }
 
 ///|
