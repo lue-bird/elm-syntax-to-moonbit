@@ -1,0 +1,6 @@
+{
+  "name": "example_sdl3_bounce",
+  "deps": {
+    "Kaida-Amethyst/sdl3": "0.1.0"
+  }
+}

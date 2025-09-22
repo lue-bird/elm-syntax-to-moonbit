@@ -1,0 +1,12 @@
+{
+  "is-main": true,
+  "import": [
+    "Kaida-Amethyst/sdl3"
+  ],
+  "supported-targets": ["native"],
+  "link": {
+    "native": {
+      "cc-flags": "-lSDL3"
+    }
+  }
+}
