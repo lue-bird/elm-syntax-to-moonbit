@@ -1477,20 +1477,124 @@ int64Literal int =
 
 
 doubleLiteral : Float -> String
-doubleLiteral double =
+doubleLiteral float =
     let
         asString : String
         asString =
-            double |> String.fromFloat
+            float |> String.fromFloat
     in
-    if asString |> String.contains "." then
-        asString
+    if asString |> String.contains "e" then
+        float |> floatToDecimalString
 
-    else if asString |> String.contains "e" then
+    else if asString |> String.contains "." then
         asString
 
     else
         asString ++ ".0"
+
+
+{-| Transforms a `Float` in scientific notation into its decimal representation
+as a `String`.
+
+    x = 1e30
+    toDecimal x -- outputs "1000000000000000000000000000000"
+
+    x = 1.2345e-30
+    toDecimal x -- outputs "0.0000000000000000000000000000012345"
+
+The implementation is a modified version of `myrho/elm-round`'s `Round.toDecimal`
+which is licensed under:
+
+BSD 3-Clause License
+
+Copyright (c) 2018, Matthias Rella
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+* Neither the name of the copyright holder nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+-}
+floatToDecimalString : Float -> String
+floatToDecimalString float =
+    case float |> Basics.abs |> String.fromFloat |> String.split "e" of
+        beforeExponentAsString :: exponentAsString :: _ ->
+            let
+                exponent : Int
+                exponent =
+                    (if String.startsWith "+" exponentAsString then
+                        String.dropLeft 1 exponentAsString
+
+                     else
+                        exponentAsString
+                    )
+                        |> String.toInt
+                        |> Maybe.withDefault 0
+
+                total : String
+                total =
+                    case beforeExponentAsString |> String.split "." of
+                        beforeComma :: afterComma :: _ ->
+                            beforeComma ++ afterComma
+
+                        [ beforeComma ] ->
+                            beforeComma ++ "0"
+
+                        [] ->
+                            "0"
+
+                zeroed : String
+                zeroed =
+                    if exponent < 0 then
+                        String.repeat (Basics.abs exponent) "0"
+                            ++ total
+                            |> String.uncons
+                            |> Maybe.map (\( a, b ) -> String.fromChar a ++ "." ++ b)
+                            |> Maybe.withDefault "0"
+
+                    else
+                        String.padRight (exponent + 1) '0' total
+            in
+            (if float < 0 then
+                "-"
+
+             else
+                ""
+            )
+                ++ zeroed
+
+        [ floatAsString ] ->
+            (if float < 0 then
+                "-"
+
+             else
+                ""
+            )
+                ++ floatAsString
+
+        [] ->
+            ""
 
 
 printMoonbitCharLiteral : Char -> Print
