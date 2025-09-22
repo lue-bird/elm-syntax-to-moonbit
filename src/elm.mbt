@@ -231,6 +231,42 @@ pub fn[YourChoice] basics_never(ever : BasicsNever) -> YourChoice {
 }
 
 ///|
+pub fn bitwise_shift_left_by(shift_bit_count : Int64, n : Int64) -> Int64 {
+  Int::to_int64(Int64::to_int(n) << Int64::to_int(shift_bit_count))
+}
+
+///|
+pub fn bitwise_shift_right_by(shift_bit_count : Int64, n : Int64) -> Int64 {
+  Int::to_int64(Int64::to_int(n) >> Int64::to_int(shift_bit_count))
+}
+
+///|
+pub fn bitwise_shift_right_zf_by(shift_bit_count : Int64, n : Int64) -> Int64 {
+  UInt::to_int64(Int::reinterpret_as_uint(Int64::to_int(n))) >>
+  Int64::to_int(shift_bit_count)
+}
+
+///|
+pub fn bitwise_complement(n : Int64) -> Int64 {
+  Int::to_int64(Int::lnot(Int64::to_int(n)))
+}
+
+///|
+pub fn bitwise_xor(a : Int64, b : Int64) -> Int64 {
+  Int::to_int64(Int64::to_int(a) ^ Int64::to_int(b))
+}
+
+///|
+pub fn bitwise_and(a : Int64, b : Int64) -> Int64 {
+  Int::to_int64(Int64::to_int(a) & Int64::to_int(b))
+}
+
+///|
+pub fn bitwise_or(a : Int64, b : Int64) -> Int64 {
+  Int::to_int64(Int64::to_int(a) | Int64::to_int(b))
+}
+
+///|
 pub fn char_to_code(char : Char) -> Int64 {
   Int::to_int64(Char::to_int(char))
 }
