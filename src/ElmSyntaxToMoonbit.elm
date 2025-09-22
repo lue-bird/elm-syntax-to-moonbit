@@ -15685,18 +15685,16 @@ printMoonbitExpressionMatchCase arm =
             |> Print.followedBy
                 (printWithMoonbitGuardConditions arm.guardConditions)
         )
-        |> Print.followedBy (Print.exactly " => {")
+        |> Print.followedBy (Print.exactly " =>")
         |> Print.followedBy
             (Print.withIndentAtNextMultipleOf4
                 (Print.linebreakIndented
                     |> Print.followedBy
-                        (printMoonbitExpressionNotParenthesizedNotCurlyEmbracedIfAfterStatement
+                        (printMoonbitExpressionParenthesizedIfSpaceSeparated
                             arm.result
                         )
                 )
             )
-        |> Print.followedBy Print.linebreakIndented
-        |> Print.followedBy (Print.exactly "}")
 
 
 printWithMoonbitGuardConditions : List MoonbitExpression -> Print
