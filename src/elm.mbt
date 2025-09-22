@@ -1,5 +1,3 @@
-// below first some default declarations included in every transpiled bundle
-
 ///|
 pub fn[S : Show] debug_to_string(thing : S) -> StringString {
   StringString::One(S::to_string(thing))
@@ -418,7 +416,118 @@ pub fn[A, B, C, D, E, Combined] maybe_map5(
 }
 
 ///|
-pub typealias Result[Ok, Err] as ResultResult[Err, Ok]
+pub typealias Result[Err, Ok] as ResultResult[Ok, Err]
+
+///|
+pub fn[A, X] result_with_default(
+  value_on_err : A,
+  result : ResultResult[X, A],
+) -> A {
+  Result::unwrap_or(result, value_on_err)
+}
+
+///|
+pub fnalias Result::to_option as result_to_maybe
+
+///|
+pub fn[A, X] result_from_maybe(
+  error_on_nothing : X,
+  maybe : A?,
+) -> ResultResult[X, A] {
+  match maybe {
+    Option::None => Result::Err(error_on_nothing)
+    Option::Some(value) => Result::Ok(value)
+  }
+}
+
+///|
+pub fn[A, B, X] result_and_then(
+  on_ok : (A) -> ResultResult[X, B],
+  result : ResultResult[X, A],
+) -> ResultResult[X, B] {
+  Result::bind(result, on_ok)
+}
+
+///|
+pub fn[A, X, Y] result_map_error(
+  error_change : (X) -> Y,
+  result : ResultResult[X, A],
+) -> ResultResult[Y, A] {
+  Result::map_err(result, error_change)
+}
+
+///|
+pub fn[A, B, X] result_map(
+  success_change : (A) -> B,
+  result : ResultResult[X, A],
+) -> ResultResult[X, B] {
+  Result::map(result, success_change)
+}
+
+///|
+pub fn[A, B, Combined, X] result_map2(
+  combine : (A, B) -> Combined,
+  a_result : ResultResult[X, A],
+  b_result : ResultResult[X, B],
+) -> ResultResult[X, Combined] {
+  match (a_result, b_result) {
+    (Result::Ok(a), Result::Ok(b)) => Result::Ok(combine(a, b))
+    (Result::Err(x), _) | (_, Result::Err(x)) => Result::Err(x)
+  }
+}
+
+///|
+pub fn[A, B, C, Combined, X] result_map3(
+  combine : (A, B, C) -> Combined,
+  a_result : ResultResult[X, A],
+  b_result : ResultResult[X, B],
+  c_result : ResultResult[X, C],
+) -> ResultResult[X, Combined] {
+  match (a_result, b_result, c_result) {
+    (Result::Ok(a), Result::Ok(b), Result::Ok(c)) =>
+      Result::Ok(combine(a, b, c))
+    (Result::Err(x), _, _) | (_, Result::Err(x), _) | (_, _, Result::Err(x)) =>
+      Result::Err(x)
+  }
+}
+
+///|
+pub fn[A, B, C, D, Combined, X] result_map4(
+  combine : (A, B, C, D) -> Combined,
+  a_result : ResultResult[X, A],
+  b_result : ResultResult[X, B],
+  c_result : ResultResult[X, C],
+  d_result : ResultResult[X, D],
+) -> ResultResult[X, Combined] {
+  match (a_result, b_result, c_result, d_result) {
+    (Result::Ok(a), Result::Ok(b), Result::Ok(c), Result::Ok(d)) =>
+      Result::Ok(combine(a, b, c, d))
+    (Result::Err(x), _, _, _)
+    | (_, Result::Err(x), _, _)
+    | (_, _, Result::Err(x), _)
+    | (_, _, _, Result::Err(x)) => Result::Err(x)
+  }
+}
+
+///|
+pub fn[A, B, C, D, E, Combined, X] result_map5(
+  combine : (A, B, C, D, E) -> Combined,
+  a_result : ResultResult[X, A],
+  b_result : ResultResult[X, B],
+  c_result : ResultResult[X, C],
+  d_result : ResultResult[X, D],
+  e_result : ResultResult[X, E],
+) -> ResultResult[X, Combined] {
+  match (a_result, b_result, c_result, d_result, e_result) {
+    (Result::Ok(a), Result::Ok(b), Result::Ok(c), Result::Ok(d), Result::Ok(e)) =>
+      Result::Ok(combine(a, b, c, d, e))
+    (Result::Err(x), _, _, _, _)
+    | (_, Result::Err(x), _, _, _)
+    | (_, _, Result::Err(x), _, _)
+    | (_, _, _, Result::Err(x), _)
+    | (_, _, _, _, Result::Err(x)) => Result::Err(x)
+  }
+}
 
 ///|
 pub fn[A] list_singleton(only_element : A) -> @list.List[A] {
