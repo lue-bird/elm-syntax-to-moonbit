@@ -7534,10 +7534,7 @@ type alias ExpressionToMoonbitContext =
             String
             (Maybe
                 -- Nothing means value, Just means function
-                { capturedVariablesFromContextAsParameters :
-                    -- not including the always-present generated allocator
-                    List { name : String, type_ : ElmSyntaxTypeInfer.Type }
-                , parameters : List ElmSyntaxTypeInfer.Type
+                { parameters : List ElmSyntaxTypeInfer.Type
                 }
             )
     , moduleInfo :
@@ -8735,28 +8732,16 @@ expression context expressionTypedNode =
                                                 MoonbitExpressionCall
                                                     { called = moonbitExpressionReference
                                                     , arguments =
-                                                        (functionParameters.capturedVariablesFromContextAsParameters
-                                                            |> List.map
-                                                                (\capturedVariableFromContextAsParameters ->
+                                                        functionParameters.parameters
+                                                            |> List.indexedMap
+                                                                (\parameterIndex _ ->
                                                                     MoonbitExpressionReference
                                                                         { qualification = []
                                                                         , name =
-                                                                            capturedVariableFromContextAsParameters.name
-                                                                                |> toSnakeCaseMoonbitName
+                                                                            generatedParameterNameForIndexAtPath parameterIndex
+                                                                                context.path
                                                                         }
                                                                 )
-                                                        )
-                                                            ++ (functionParameters.parameters
-                                                                    |> List.indexedMap
-                                                                        (\parameterIndex _ ->
-                                                                            MoonbitExpressionReference
-                                                                                { qualification = []
-                                                                                , name =
-                                                                                    generatedParameterNameForIndexAtPath parameterIndex
-                                                                                        context.path
-                                                                                }
-                                                                        )
-                                                               )
                                                     }
                                             }
                                         |> .expression
@@ -9501,10 +9486,7 @@ expression context expressionTypedNode =
                         String
                         (Maybe
                             -- Nothing means value, Just means function
-                            { capturedVariablesFromContextAsParameters :
-                                -- not including the always-present generated allocator
-                                List { name : String, type_ : ElmSyntaxTypeInfer.Type }
-                            , parameters : List ElmSyntaxTypeInfer.Type
+                            { parameters : List ElmSyntaxTypeInfer.Type
                             }
                         )
                 letDeclaredValueAndFunctionTypesIncludingFromContext =
@@ -11505,10 +11487,7 @@ letValueOrFunctionDeclarationToMoonbitKindAndParameters :
             String
             (Maybe
                 -- Nothing means value, Just means function
-                { capturedVariablesFromContextAsParameters :
-                    -- not including the always-present generated allocator
-                    List { name : String, type_ : ElmSyntaxTypeInfer.Type }
-                , parameters : List ElmSyntaxTypeInfer.Type
+                { parameters : List ElmSyntaxTypeInfer.Type
                 }
             )
     , moduleInfo :
@@ -11550,10 +11529,7 @@ letValueOrFunctionDeclarationToMoonbitKindAndParameters :
     ->
         Maybe
             -- Nothing means value, Just means function
-            { capturedVariablesFromContextAsParameters :
-                -- not including the always-present generated allocator
-                List { name : String, type_ : ElmSyntaxTypeInfer.Type }
-            , parameters : List ElmSyntaxTypeInfer.Type
+            { parameters : List ElmSyntaxTypeInfer.Type
             }
 letValueOrFunctionDeclarationToMoonbitKindAndParameters context inferredLetDeclarationValueOrFunctionNode =
     let
@@ -11624,17 +11600,7 @@ letValueOrFunctionDeclarationToMoonbitKindAndParameters context inferredLetDecla
                     ++ additionalGeneratedParameters
         in
         Just
-            { capturedVariablesFromContextAsParameters =
-                inferredExpressionCapturedVariablesFromContext
-                    { bindings =
-                        context.localElmBindingsInScope
-                            |> FastDict.remove inferredLetDeclarationValueOrFunctionNode.declaration.name
-                    , letDeclaredValueAndFunctionTypes =
-                        context.letDeclaredValueAndFunctionTypes
-                            |> FastDict.remove inferredLetDeclarationValueOrFunctionNode.declaration.name
-                    }
-                    inferredLetDeclarationValueOrFunctionNode.declaration.result.value
-            , parameters = parameters
+            { parameters = parameters
             }
 
 
@@ -11805,8 +11771,8 @@ letValueOrFunctionDeclaration context inferredLetDeclarationValueOrFunctionNode 
                         { patterns = []
                         }
 
-            elmAndAdditionalGeneratedParametersAsMoonbit : List { pattern : MoonbitPattern, type_ : MoonbitType }
-            elmAndAdditionalGeneratedParametersAsMoonbit =
+            allMoonbitParameters : List { pattern : MoonbitPattern, type_ : MoonbitType }
+            allMoonbitParameters =
                 elmParametersAsMoonbit.patterns
                     ++ (additionalGeneratedParameters
                             |> List.map
@@ -11853,46 +11819,6 @@ letValueOrFunctionDeclaration context inferredLetDeclarationValueOrFunctionNode 
                                 { typeAliasesInModule = typeAliasesInModule
                                 , moonbitEnumTypes = context.moonbitEnumTypes
                                 }
-
-                    capturedVariables : List { name : String, type_ : ElmSyntaxTypeInfer.Type }
-                    capturedVariables =
-                        inferredExpressionCapturedVariablesFromContext
-                            { bindings =
-                                context.localElmBindingsInScope
-                                    |> FastDict.remove inferredLetDeclarationValueOrFunctionNode.declaration.name
-                            , letDeclaredValueAndFunctionTypes =
-                                context.letDeclaredValueAndFunctionTypes
-                                    |> FastDict.remove inferredLetDeclarationValueOrFunctionNode.declaration.name
-                            }
-                            inferredLetDeclarationValueOrFunctionNode.declaration.result.value
-
-                    allMoonbitParameters : List { pattern : MoonbitPattern, type_ : MoonbitType }
-                    allMoonbitParameters =
-                        (capturedVariables
-                            |> List.map
-                                (\parameter ->
-                                    let
-                                        moonbitType : MoonbitType
-                                        moonbitType =
-                                            parameter.type_
-                                                |> type_
-                                                    { typeAliasesInModule = typeAliasesInModule
-                                                    , moonbitEnumTypes = context.moonbitEnumTypes
-                                                    }
-                                                |> moonbitTypeUnnestFn
-                                    in
-                                    { pattern =
-                                        MoonbitPatternVariable
-                                            { name =
-                                                parameter.name
-                                                    |> toSnakeCaseMoonbitName
-                                            , type_ = moonbitType
-                                            }
-                                    , type_ = moonbitType
-                                    }
-                                )
-                        )
-                            ++ elmAndAdditionalGeneratedParametersAsMoonbit
                 in
                 MoonbitStatementFnDeclaration
                     { name = moonbitName
@@ -11915,28 +11841,19 @@ letValueOrFunctionDeclaration context inferredLetDeclarationValueOrFunctionNode 
                                 )
                     , resultType = resultType
                     , typeParameters =
-                        capturedVariables
+                        allTypeParameters
                             |> List.foldl
-                                (\capturedVariable withCapturedVariablesSoFar ->
-                                    capturedVariable.type_
-                                        |> inferredTypeContainedVariables
-                                        |> FastDict.foldl
-                                            (\variableName _ soFar ->
-                                                if variableName |> String.startsWith "number" then
-                                                    soFar
+                                (\typeParameter soFar ->
+                                    if
+                                        inferredLetDeclarationValueOrFunctionNode.range
+                                            |> rangeIncludesRange typeParameter.useRange
+                                    then
+                                        soFar |> FastSet.insert typeParameter.name
 
-                                                else
-                                                    soFar |> FastSet.insert (variableName |> toPascalCaseMoonbitName)
-                                            )
-                                            withCapturedVariablesSoFar
+                                    else
+                                        soFar
                                 )
-                                (allTypeParameters
-                                    |> List.foldl
-                                        (\typeParameter soFar ->
-                                            soFar |> FastSet.insert typeParameter.name
-                                        )
-                                        FastSet.empty
-                                )
+                                FastSet.empty
                             |> FastSet.toList
                     , result =
                         resultWithAdditionalParameters
@@ -11979,7 +11896,7 @@ letValueOrFunctionDeclaration context inferredLetDeclarationValueOrFunctionNode 
                     , functionDeclaredMoonbitParameterEquivalentBindings =
                         context.functionDeclaredMoonbitParameterEquivalentBindings
                             |> FastSet.union
-                                (elmAndAdditionalGeneratedParametersAsMoonbit
+                                (allMoonbitParameters
                                     |> listMapToFastSetsAndUnify
                                         (\moonbitParameter ->
                                             moonbitParameter.pattern
@@ -12034,75 +11951,6 @@ moonbitPatternDirectlyCapturingBindings moonbitPattern =
         MoonbitPatternAlias patternAlias ->
             FastSet.insert patternAlias.variable
                 (moonbitPatternDirectlyCapturingBindings patternAlias.pattern)
-
-
-inferredExpressionCapturedVariablesFromContext :
-    { bindings : FastDict.Dict String ElmSyntaxTypeInfer.Type
-    , letDeclaredValueAndFunctionTypes :
-        FastDict.Dict
-            String
-            (Maybe
-                -- Nothing means value, Just means function
-                { capturedVariablesFromContextAsParameters :
-                    -- not including the always-present generated allocator
-                    List { name : String, type_ : ElmSyntaxTypeInfer.Type }
-                , parameters : List ElmSyntaxTypeInfer.Type
-                }
-            )
-    }
-    -> ElmSyntaxTypeInfer.Expression
-    -> List { name : String, type_ : ElmSyntaxTypeInfer.Type }
-inferredExpressionCapturedVariablesFromContext context inferredExpression =
-    let
-        resultUsedLocalReferences : FastSet.Set String
-        resultUsedLocalReferences =
-            inferredExpression
-                |> inferredExpressionUsedLocalReferences
-    in
-    context.bindings
-        |> FastDict.foldr
-            (\variableFromWithinDeclarationInScope variableFromWithinDeclarationInScopeType soFar ->
-                if
-                    resultUsedLocalReferences
-                        |> FastSet.member variableFromWithinDeclarationInScope
-                then
-                    case
-                        context.letDeclaredValueAndFunctionTypes
-                            |> FastDict.get variableFromWithinDeclarationInScope
-                    of
-                        Nothing ->
-                            soFar
-                                |> FastDict.insert variableFromWithinDeclarationInScope
-                                    variableFromWithinDeclarationInScopeType
-
-                        Just letValueOrFunction ->
-                            case letValueOrFunction of
-                                -- value
-                                Nothing ->
-                                    soFar
-                                        |> FastDict.insert variableFromWithinDeclarationInScope
-                                            variableFromWithinDeclarationInScopeType
-
-                                -- function
-                                Just originLetFunction ->
-                                    originLetFunction.capturedVariablesFromContextAsParameters
-                                        |> List.foldl
-                                            (\originLetFunctionCapture withOriginLetFunctionCapturesSoFar ->
-                                                withOriginLetFunctionCapturesSoFar
-                                                    |> FastDict.insert originLetFunctionCapture.name
-                                                        originLetFunctionCapture.type_
-                                            )
-                                            soFar
-
-                else
-                    soFar
-            )
-            FastDict.empty
-        |> FastDict.foldr
-            (\name bindingType soFar ->
-                { name = name, type_ = bindingType } :: soFar
-            )
-            []
 
 
 rangeIncludesRange : Elm.Syntax.Range.Range -> Elm.Syntax.Range.Range -> Bool
