@@ -895,19 +895,20 @@ printMoonbitTypeAliasDeclaration :
     }
     -> Print
 printMoonbitTypeAliasDeclaration moonbitTypeAliasDeclaration =
-    Print.exactly
-        ("pub typealias " ++ moonbitTypeAliasDeclaration.name)
-        |> Print.followedBy
-            (printTypeParameters
-                moonbitTypeAliasDeclaration.parameters
-            )
-        |> Print.followedBy (Print.exactly " =")
+    Print.exactly "pub typealias"
         |> Print.followedBy
             (Print.withIndentAtNextMultipleOf4
                 (Print.linebreakIndented
                     |> Print.followedBy
                         (moonbitTypeAliasDeclaration.type_
                             |> printMoonbitTypeNotParenthesized
+                        )
+                    |> Print.followedBy Print.linebreakIndented
+                    |> Print.followedBy
+                        (Print.exactly ("as " ++ moonbitTypeAliasDeclaration.name))
+                    |> Print.followedBy
+                        (printTypeParameters
+                            moonbitTypeAliasDeclaration.parameters
                         )
                 )
             )
