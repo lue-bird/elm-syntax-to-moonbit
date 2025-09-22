@@ -147,7 +147,7 @@ type MoonbitExpression
     | MoonbitExpressionClosure
         { parameters :
             List
-                { pattern : MoonbitPattern
+                { binding : Maybe String
                 , type_ : Maybe MoonbitType
                 }
         , resultType : Maybe MoonbitType
@@ -1018,11 +1018,6 @@ moonbitTypeDouble =
         , isShow = True
         , isEq = True
         }
-
-
-generatedLifetimeVariableName : String
-generatedLifetimeVariableName =
-    "a"
 
 
 typeNotVariable :
@@ -7290,8 +7285,9 @@ valueOrFunctionDeclaration context syntaxDeclarationValueOrFunction =
                     resultWithAdditionalGeneratedArgumentsApplied
                         |> moonbitExpressionPrependStatements
                             (allMoonbitParameters
-                                |> List.indexedMap
-                                    (\parameterIndex parameter ->
+                                |> List.indexedMap Tuple.pair
+                                |> List.filterMap
+                                    (\( parameterIndex, parameter ) ->
                                         case parameter.pattern of
                                             MoonbitPatternVariable _ ->
                                                 Nothing
@@ -7311,7 +7307,6 @@ valueOrFunctionDeclaration context syntaxDeclarationValueOrFunction =
                                                         }
                                                     )
                                     )
-                                |> List.filterMap Basics.identity
                             )
                 }
         )
@@ -7632,20 +7627,8 @@ type alias ExpressionToMoonbitContext =
     }
 
 
-moonbitExpressionClosureReference :
-    { parameters : List { pattern : MoonbitPattern, type_ : Maybe MoonbitType }
-    , result : MoonbitExpression
-    }
-    -> MoonbitExpression
-moonbitExpressionClosureReference closure =
-    moonbitExpressionClosureReduced
-        { parameters = closure.parameters
-        , result = closure.result
-        }
-
-
 moonbitExpressionClosureReduced :
-    { parameters : List { pattern : MoonbitPattern, type_ : Maybe MoonbitType }
+    { parameters : List { binding : Maybe String, type_ : Maybe MoonbitType }
     , result : MoonbitExpression
     }
     -> MoonbitExpression
@@ -7656,12 +7639,7 @@ moonbitExpressionClosureReduced closure =
             closure.parameters
                 |> listMapAndCombineJust
                     (\parameter ->
-                        case parameter.pattern of
-                            MoonbitPatternVariable variable ->
-                                Just variable.name
-
-                            _ ->
-                                Nothing
+                        parameter.binding
                     )
     in
     case closureParametersMaybeAsBindings of
@@ -7857,13 +7835,10 @@ expression context expressionTypedNode =
                                     }
                     in
                     Ok
-                        (moonbitExpressionClosureReference
+                        (moonbitExpressionClosureReduced
                             { parameters =
-                                [ { pattern =
-                                        MoonbitPatternVariable
-                                            { name = generatedAccessedStructVariableName
-                                            , type_ = inputRecordMoonbitType
-                                            }
+                                [ { binding =
+                                        Just generatedAccessedStructVariableName
                                   , type_ = Just inputRecordMoonbitType
                                   }
                                 ]
@@ -7919,25 +7894,17 @@ expression context expressionTypedNode =
                                             , moonbitEnumTypes = context.moonbitEnumTypes
                                             }
                             in
-                            moonbitExpressionClosureReference
+                            moonbitExpressionClosureReduced
                                 { parameters =
-                                    [ { pattern =
-                                            MoonbitPatternVariable
-                                                { name = "generated_left"
-                                                , type_ = leftMoonbitType
-                                                }
-                                      , type_ = leftMoonbitType |> Just
+                                    [ { binding = Just "generated_left"
+                                      , type_ = Just leftMoonbitType
                                       }
                                     ]
                                 , result =
-                                    moonbitExpressionClosureReference
+                                    moonbitExpressionClosureReduced
                                         { parameters =
-                                            [ { pattern =
-                                                    MoonbitPatternVariable
-                                                        { name = "generated_right"
-                                                        , type_ = rightMoonbitType
-                                                        }
-                                              , type_ = rightMoonbitType |> Just
+                                            [ { binding = Just "generated_right"
+                                              , type_ = Just rightMoonbitType
                                               }
                                             ]
                                         , result =
@@ -8069,7 +8036,7 @@ expression context expressionTypedNode =
                                                     unnested :
                                                         { parametersReverse :
                                                             List
-                                                                { pattern : MoonbitPattern
+                                                                { binding : Maybe String
                                                                 , type_ : Maybe MoonbitType
                                                                 }
                                                         , moonbitArgumentCondensed : MoonbitExpression
@@ -8106,11 +8073,7 @@ expression context expressionTypedNode =
                                                                                         argumentPath
                                                                             in
                                                                             { parametersReverse =
-                                                                                { pattern =
-                                                                                    MoonbitPatternVariable
-                                                                                        { name = unnestParameterName
-                                                                                        , type_ = unnestMoonbitParameterType
-                                                                                        }
+                                                                                { binding = Just unnestParameterName
                                                                                 , type_ = Just unnestMoonbitParameterType
                                                                                 }
                                                                                     :: soFar.parametersReverse
@@ -8511,13 +8474,9 @@ expression context expressionTypedNode =
                             |> List.foldr
                                 (\parameter resultSoFar ->
                                     { expression =
-                                        moonbitExpressionClosureReference
+                                        moonbitExpressionClosureReduced
                                             { parameters =
-                                                [ { pattern =
-                                                        MoonbitPatternVariable
-                                                            { name = parameter.name
-                                                            , type_ = parameter.type_
-                                                            }
+                                                [ { binding = Just parameter.name
                                                   , type_ = parameter.type_ |> Just
                                                   }
                                                 ]
@@ -8629,14 +8588,10 @@ expression context expressionTypedNode =
                                                     }
                                     in
                                     { expression =
-                                        moonbitExpressionClosureReference
+                                        moonbitExpressionClosureReduced
                                             { parameters =
-                                                [ { pattern =
-                                                        MoonbitPatternVariable
-                                                            { name = parameter.name
-                                                            , type_ = parameterType
-                                                            }
-                                                  , type_ = parameterType |> Just
+                                                [ { binding = Just parameter.name
+                                                  , type_ = Just parameterType
                                                   }
                                                 ]
                                             , result = resultSoFar.expression
@@ -8746,13 +8701,10 @@ expression context expressionTypedNode =
                                         moonbitParameters
                                             |> List.foldr
                                                 (\moonbitParameter soFar ->
-                                                    moonbitExpressionClosureReference
+                                                    moonbitExpressionClosureReduced
                                                         { parameters =
-                                                            [ { pattern =
-                                                                    MoonbitPatternVariable
-                                                                        { name = moonbitParameter.name
-                                                                        , type_ = moonbitParameter.type_
-                                                                        }
+                                                            [ { binding =
+                                                                    Just moonbitParameter.name
                                                               , type_ = Just moonbitParameter.type_
                                                               }
                                                             ]
@@ -8815,13 +8767,9 @@ expression context expressionTypedNode =
                                         |> List.foldr
                                             (\parameter resultSoFar ->
                                                 { expression =
-                                                    moonbitExpressionClosureReference
+                                                    moonbitExpressionClosureReduced
                                                         { parameters =
-                                                            [ { pattern =
-                                                                    MoonbitPatternVariable
-                                                                        { name = parameter.name
-                                                                        , type_ = parameter.type_
-                                                                        }
+                                                            [ { binding = Just parameter.name
                                                               , type_ = Just parameter.type_
                                                               }
                                                             ]
@@ -8886,14 +8834,10 @@ expression context expressionTypedNode =
 
                         Just referenceOriginModuleInfo ->
                             if referenceOriginModuleInfo.portsOutgoing |> FastSet.member reference.name then
-                                moonbitExpressionClosureReference
+                                moonbitExpressionClosureReduced
                                     { parameters =
-                                        [ { pattern =
-                                                MoonbitPatternVariable
-                                                    { name = "generated_data"
-                                                    , type_ = moonbitTypeJsonValue
-                                                    }
-                                          , type_ = moonbitTypeJsonValue |> Just
+                                        [ { binding = Just "generated_data"
+                                          , type_ = Just moonbitTypeJsonValue
                                           }
                                         ]
                                     , result =
@@ -8934,16 +8878,9 @@ expression context expressionTypedNode =
                                                 -- error?
                                                 Nothing
                                 in
-                                moonbitExpressionClosureReference
+                                moonbitExpressionClosureReduced
                                     { parameters =
-                                        [ { pattern =
-                                                MoonbitPatternVariable
-                                                    { name = "generated_on_event"
-                                                    , type_ =
-                                                        onEventType
-                                                            |> -- error
-                                                               Maybe.withDefault MoonbitTypeInfer
-                                                    }
+                                        [ { binding = Just "generated_on_event"
                                           , type_ = onEventType
                                           }
                                         ]
@@ -9430,12 +9367,22 @@ expression context expressionTypedNode =
                                     )
                     in
                     moonbitParameters
+                        |> List.indexedMap Tuple.pair
                         |> List.foldr
-                            (\parameter resultSoFar ->
+                            (\( parameterIndex, parameter ) resultSoFar ->
                                 { expression =
-                                    moonbitExpressionClosureReference
+                                    moonbitExpressionClosureReduced
                                         { parameters =
-                                            [ { pattern = parameter.pattern
+                                            [ { binding =
+                                                    case parameter.pattern of
+                                                        MoonbitPatternVariable parameterVariable ->
+                                                            Just parameterVariable.name
+
+                                                        MoonbitPatternIgnore ->
+                                                            Nothing
+
+                                                        _ ->
+                                                            Just (generatedParameterNameForIndex parameterIndex)
                                               , type_ = Just parameter.type_
                                               }
                                             ]
@@ -9448,7 +9395,33 @@ expression context expressionTypedNode =
                                         }
                                 }
                             )
-                            { expression = result
+                            { expression =
+                                result
+                                    |> moonbitExpressionPrependStatements
+                                        (moonbitParameters
+                                            |> List.indexedMap Tuple.pair
+                                            |> List.filterMap
+                                                (\( parameterIndex, parameter ) ->
+                                                    case parameter.pattern of
+                                                        MoonbitPatternVariable _ ->
+                                                            Nothing
+
+                                                        MoonbitPatternIgnore ->
+                                                            Nothing
+
+                                                        parameterPatternThatNeedsToBeDestructured ->
+                                                            Just
+                                                                (MoonbitStatementLetDestructuring
+                                                                    { pattern = parameterPatternThatNeedsToBeDestructured
+                                                                    , expression =
+                                                                        MoonbitExpressionReference
+                                                                            { qualification = []
+                                                                            , name = generatedParameterNameForIndex parameterIndex
+                                                                            }
+                                                                    }
+                                                                )
+                                                )
+                                        )
                             , type_ =
                                 lambda.result.type_
                                     |> type_
@@ -9750,16 +9723,14 @@ moonbitExpressionReferenceDeclaredFnAppliedLazilyOrCurriedIfNecessary context mo
                                 }
                 in
                 { expression =
-                    moonbitExpressionClosureReference
+                    moonbitExpressionClosureReduced
                         { parameters =
-                            [ { pattern =
-                                    MoonbitPatternVariable
-                                        { name =
-                                            generatedParameterNameForIndexAtPath
-                                                parameterIndex
-                                                context.path
-                                        , type_ = parameterType
-                                        }
+                            [ { binding =
+                                    Just
+                                        (generatedParameterNameForIndexAtPath
+                                            parameterIndex
+                                            context.path
+                                        )
                               , type_ = Just parameterType
                               }
                             ]
@@ -10436,13 +10407,13 @@ moonbitExpressionCallCondense call =
     in
     case calledDereferenced of
         MoonbitExpressionClosure calledLambda ->
-            case calledLambda.parameters |> List.map .pattern of
-                [ MoonbitPatternVariable parameter ] ->
+            case calledLambda.parameters |> List.map .binding of
+                [ Just parameterBindingName ] ->
                     if
                         (call.argument |> moonbitExpressionIsConstant)
                             || (((calledDereferenced
                                     |> moonbitExpressionCountUsesOfReference
-                                        { qualification = [], name = parameter.name }
+                                        { qualification = [], name = parameterBindingName }
                                  )
                                     == 1
                                 )
@@ -10457,14 +10428,14 @@ moonbitExpressionCallCondense call =
                                          in
                                          (calledLambdaResultInnermostLambdaResult.result
                                             |> moonbitExpressionUsesReferenceInLambdaOrFnDeclaration
-                                                { qualification = [], name = parameter.name }
+                                                { qualification = [], name = parameterBindingName }
                                          )
                                             || (calledLambdaResultInnermostLambdaResult.statements
                                                     |> List.any
                                                         (\statement ->
                                                             statement
                                                                 |> moonbitStatementUsesReferenceInLambdaOrFnDeclaration
-                                                                    { qualification = [], name = parameter.name }
+                                                                    { qualification = [], name = parameterBindingName }
                                                         )
                                                )
                                         )
@@ -10479,7 +10450,7 @@ moonbitExpressionCallCondense call =
                                             False
 
                                         [] ->
-                                            existingReference.name == parameter.name
+                                            existingReference.name == parameterBindingName
                                 then
                                     call.argument
 
@@ -10510,9 +10481,10 @@ moonbitExpressionCallCondense call =
                                 case argumentCall.called of
                                     MoonbitExpressionReference argumentReference ->
                                         case argumentReference.name of
-                                            "list" ->
+                                            -- @list.of
+                                            "of" ->
                                                 case argumentCall.arguments of
-                                                    [ {- allocator -} _, MoonbitExpressionArrayLiteral elements ] ->
+                                                    [ MoonbitExpressionArrayLiteral elements ] ->
                                                         Just elements
 
                                                     _ ->
@@ -12017,10 +11989,11 @@ letValueOrFunctionDeclaration context inferredLetDeclarationValueOrFunctionNode 
                         resultWithAdditionalParameters
                             |> moonbitExpressionPrependStatements
                                 (allMoonbitParameters
-                                    |> List.indexedMap
-                                        (\parameterIndex parameter ->
+                                    |> List.indexedMap Tuple.pair
+                                    |> List.filterMap
+                                        (\( parameterIndex, parameter ) ->
                                             case parameter.pattern of
-                                                MoonbitPatternVariable parameterVariable ->
+                                                MoonbitPatternVariable _ ->
                                                     Nothing
 
                                                 MoonbitPatternIgnore ->
@@ -12038,7 +12011,6 @@ letValueOrFunctionDeclaration context inferredLetDeclarationValueOrFunctionNode 
                                                             }
                                                         )
                                         )
-                                    |> List.filterMap Basics.identity
                                 )
                     }
             )
@@ -15658,7 +15630,7 @@ printExactlyCurlyOpening =
 printMoonbitExpressionClosure :
     { parameters :
         List
-            { pattern : MoonbitPattern
+            { binding : Maybe String
             , type_ : Maybe MoonbitType
             }
     , resultType : Maybe MoonbitType
@@ -15686,8 +15658,13 @@ printMoonbitExpressionClosure lambda =
             lambda.parameters
                 |> List.map
                     (\lambdaParameter ->
-                        lambdaParameter.pattern
-                            |> printMoonbitPattern
+                        (case lambdaParameter.binding of
+                            Just binding ->
+                                Print.exactly binding
+
+                            Nothing ->
+                                Print.exactly "_"
+                        )
                             |> Print.followedBy
                                 (case lambdaParameter.type_ of
                                     Nothing ->
