@@ -122,6 +122,91 @@ pub fn[N : Mul] basics_mul(a : N, b : N) -> N {
 }
 
 ///|
+pub fnalias Int64::div as basics_idiv
+
+///|
+pub fnalias Double::div as basics_fdiv
+
+///|
+pub fn basics_remainder_by(to_divide_by : Int64, n : Int64) -> Int64 {
+  n % to_divide_by
+}
+
+///|
+pub fn basics_mod_by(to_divide_by : Int64, n : Int64) -> Int64 {
+  // https://github.com/elm/core/blob/1.0.5/src/Elm/Kernel/Basics.js#L20
+  // https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/divmodnote-letter.pdf
+  if to_divide_by == 0L {
+    // will panic
+    n % 0
+  } else {
+    let remainder : Int64 = n % to_divide_by
+    if (remainder > 0L && to_divide_by < 0L) ||
+      (remainder < 0L && to_divide_by > 0L) {
+      remainder + to_divide_by
+    } else {
+      remainder
+    }
+  }
+}
+
+///|
+pub fnalias Double::is_nan as basics_is_nan
+
+///|
+pub fnalias Double::sqrt as basics_sqrt
+
+///|
+pub fnalias Double::is_inf as basics_is_infinite
+
+///|
+pub fn basics_ceiling(float : Double) -> Int64 {
+  Double::to_int64(Double::ceil(float))
+}
+
+///|
+pub fn basics_floor(float : Double) -> Int64 {
+  Double::to_int64(Double::floor(float))
+}
+
+///|
+pub fn basics_round(float : Double) -> Int64 {
+  Double::to_int64(Double::round(float))
+}
+
+///|
+pub fn[N : Neg] basics_negate(n : N) -> N {
+  N::neg(n)
+}
+
+///|
+pub fn basics_log_base(base : Double, n : Double) -> Double {
+  @math.ln(n) / @math.ln(base)
+}
+
+///|
+pub fn basics_to_radians(degrees : Double) -> Double {
+  degrees / 180 * @math.PI
+}
+
+///|
+pub fn basics_turns(turns : Double) -> Double {
+  turns * 2 * @math.PI
+}
+
+///|
+pub fn basics_to_polar(xy : (Double, Double)) -> (Double, Double) {
+  let (x, y) = xy
+  (Double::sqrt(x * x + y * y), @math.atan2(y, x))
+}
+
+///|
+pub fn basics_from_polar(polar : (Double, Double)) -> (Double, Double) {
+  let (radius, theta) = polar
+  (radius * @math.cos(theta), radius * @math.sin(theta))
+}
+
+///|
 pub fn[C : Compare] basics_clamp(minimum : C, maximum : C, n : C) -> C {
   if n < minimum {
     minimum
