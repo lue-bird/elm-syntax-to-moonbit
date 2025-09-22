@@ -29959,6 +29959,91 @@ pub fn char_to_upper(char : Char) -> Char {
 }
 
 ///|
+pub fn[A] maybe_with_default(value_on_nothing : A, maybe : A?) -> A {
+  Option::unwrap_or(maybe, value_on_nothing)
+}
+
+///|
+pub fn[A, B] maybe_and_then(on_value : (A) -> B?, maybe : A?) -> B? {
+  Option::bind(maybe, on_value)
+}
+
+///|
+pub fn[A, B] maybe_map(value_change : (A) -> B, maybe : A?) -> B? {
+  Option::map(maybe, value_change)
+}
+
+///|
+pub fn[A, B, Combined] maybe_map2(
+  combine : (A, B) -> Combined,
+  a_maybe : A?,
+  b_maybe : B?,
+) -> Combined? {
+  match (a_maybe, b_maybe) {
+    (Option::Some(a), Option::Some(b)) => Option::Some(combine(a, b))
+    (Option::None, _) | (_, Option::None) => Option::None
+  }
+}
+
+///|
+pub fn[A, B, C, Combined] maybe_map3(
+  combine : (A, B, C) -> Combined,
+  a_maybe : A?,
+  b_maybe : B?,
+  c_maybe : C?,
+) -> Combined? {
+  match (a_maybe, b_maybe, c_maybe) {
+    (Option::Some(a), Option::Some(b), Option::Some(c)) =>
+      Option::Some(combine(a, b, c))
+    (Option::None, _, _) | (_, Option::None, _) | (_, _, Option::None) =>
+      Option::None
+  }
+}
+
+///|
+pub fn[A, B, C, D, Combined] maybe_map4(
+  combine : (A, B, C, D) -> Combined,
+  a_maybe : A?,
+  b_maybe : B?,
+  c_maybe : C?,
+  d_maybe : D?,
+) -> Combined? {
+  match (a_maybe, b_maybe, c_maybe, d_maybe) {
+    (Option::Some(a), Option::Some(b), Option::Some(c), Option::Some(d)) =>
+      Option::Some(combine(a, b, c, d))
+    (Option::None, _, _, _)
+    | (_, Option::None, _, _)
+    | (_, _, Option::None, _)
+    | (_, _, _, Option::None) => Option::None
+  }
+}
+
+///|
+pub fn[A, B, C, D, E, Combined] maybe_map5(
+  combine : (A, B, C, D, E) -> Combined,
+  a_maybe : A?,
+  b_maybe : B?,
+  c_maybe : C?,
+  d_maybe : D?,
+  e_maybe : E?,
+) -> Combined? {
+  match (a_maybe, b_maybe, c_maybe, d_maybe, e_maybe) {
+    (
+      Option::Some(a),
+      Option::Some(b),
+      Option::Some(c),
+      Option::Some(d),
+      Option::Some(e),
+    ) => Option::Some(combine(a, b, c, d, e))
+    (Option::None, _, _, _, _)
+    | (_, Option::None, _, _, _)
+    | (_, _, Option::None, _, _)
+    | (_, _, _, Option::None, _)
+    | (_, _, _, _, Option::None) => Option::None
+  }
+}
+
+///|
 pub typealias Result[Ok, Err] as ResultResult[Err, Ok]
 
 ///|
@@ -30062,12 +30147,12 @@ pub fn[A, Key : Compare] list_sort_by(
 
 ///|
 pub fn[A] list_sort_with(
-  element_compare : (A) -> (A) -> BasicsOrder,
+  element_compare : (A, A) -> BasicsOrder,
   list : @list.List[A],
 ) -> @list.List[A] {
   let as_array : Array[A] = @list.List::to_array(list)
   Array::sort_by(as_array, fn(a, b) {
-    basics_order_to_int(element_compare(a)(b))
+    basics_order_to_int(element_compare(a, b))
   })
   @list.from_array(as_array)
 }
@@ -30084,18 +30169,18 @@ pub fn[A] list_any(is_needle : (A) -> Bool, list : @list.List[A]) -> Bool {
 
 ///|
 pub fn[A, State] list_foldl(
-  reduce : (A) -> (State) -> State,
+  reduce : (A, State) -> State,
   initial_state : State,
   list : @list.List[A],
 ) -> State {
   @list.List::fold(list, init=initial_state, fn(state, element) {
-    reduce(element)(state)
+    reduce(element, state)
   })
 }
 
 ///|
 pub fn[A, State] list_foldr(
-  reduce : (A) -> (State) -> State,
+  reduce : (A, State) -> State,
   initial_state : State,
   list : @list.List[A],
 ) -> State {
@@ -30103,7 +30188,7 @@ pub fn[A, State] list_foldr(
     state,
     element,
   ) {
-    reduce(element)(state)
+    reduce(element, state)
   })
 }
 
@@ -30146,11 +30231,11 @@ pub fn[A, B] list_map(
 
 ///|
 pub fn[A, B] list_indexed_map(
-  element_change : (Int64) -> (A) -> B,
+  element_change : (Int64, A) -> B,
   list : @list.List[A],
 ) -> @list.List[B] {
   @list.List::mapi(list, fn(index, element) {
-    element_change(Int::to_int64(index))(element)
+    element_change(Int::to_int64(index), element)
   })
 }
 
@@ -30178,7 +30263,7 @@ pub fnalias @list.zip as list_zip
 
 ///|
 pub fn[A, B, Combined] list_map2(
-  elements_combine : (A) -> (B) -> Combined,
+  elements_combine : (A, B) -> Combined,
   a_list : @list.List[A],
   b_list : @list.List[B],
 ) -> @list.List[Combined] {
@@ -30193,7 +30278,7 @@ pub fn[A, B, Combined] list_map2(
       ) => {
         remaining_a_list = a_tail
         remaining_b_list = b_tail
-        combined_array.push(elements_combine(a_head)(b_head))
+        combined_array.push(elements_combine(a_head, b_head))
       }
       (@list.List::Empty, _) | (_, @list.List::Empty) => break
     }
@@ -30203,7 +30288,7 @@ pub fn[A, B, Combined] list_map2(
 
 ///|
 pub fn[A, B, C, Combined] list_map3(
-  elements_combine : (A) -> (B) -> (C) -> Combined,
+  elements_combine : (A, B, C) -> Combined,
   a_list : @list.List[A],
   b_list : @list.List[B],
   c_list : @list.List[C],
@@ -30222,7 +30307,7 @@ pub fn[A, B, C, Combined] list_map3(
         remaining_a_list = a_tail
         remaining_b_list = b_tail
         remaining_c_list = c_tail
-        combined_array.push(elements_combine(a_head)(b_head)(c_head))
+        combined_array.push(elements_combine(a_head, b_head, c_head))
       }
       (@list.List::Empty, _, _)
       | (_, @list.List::Empty, _)
@@ -30234,7 +30319,7 @@ pub fn[A, B, C, Combined] list_map3(
 
 ///|
 pub fn[A, B, C, D, Combined] list_map4(
-  elements_combine : (A) -> (B) -> (C) -> (D) -> Combined,
+  elements_combine : (A, B, C, D) -> Combined,
   a_list : @list.List[A],
   b_list : @list.List[B],
   c_list : @list.List[C],
@@ -30258,7 +30343,7 @@ pub fn[A, B, C, D, Combined] list_map4(
         remaining_b_list = b_tail
         remaining_c_list = c_tail
         remaining_d_list = d_tail
-        combined_array.push(elements_combine(a_head)(b_head)(c_head)(d_head))
+        combined_array.push(elements_combine(a_head, b_head, c_head, d_head))
       }
       (@list.List::Empty, _, _, _)
       | (_, @list.List::Empty, _, _)
@@ -30271,7 +30356,7 @@ pub fn[A, B, C, D, Combined] list_map4(
 
 ///|
 pub fn[A, B, C, D, E, Combined] list_map5(
-  elements_combine : (A) -> (B) -> (C) -> (D) -> (E) -> Combined,
+  elements_combine : (A, B, C, D, E) -> Combined,
   a_list : @list.List[A],
   b_list : @list.List[B],
   c_list : @list.List[C],
@@ -30302,7 +30387,7 @@ pub fn[A, B, C, D, E, Combined] list_map5(
         remaining_d_list = d_tail
         remaining_e_list = e_tail
         combined_array.push(
-          elements_combine(a_head)(b_head)(c_head)(d_head)(e_head),
+          elements_combine(a_head, b_head, c_head, d_head, e_head),
         )
       }
       (@list.List::Empty, _, _, _, _)
@@ -30948,28 +31033,28 @@ pub fn string_words(string : StringString) -> @list.List[StringString] {
 ///|
 pub fn[State] string_foldl(
   initial_state : State,
-  reduce : (Char) -> (State) -> State,
+  reduce : (Char, State) -> State,
   string : StringString,
 ) -> State {
   String::fold(string_string_to_string(string), init=initial_state, fn(
     so_far,
     char,
   ) {
-    reduce(char)(so_far)
+    reduce(char, so_far)
   })
 }
 
 ///|
 pub fn[State] string_foldr(
   initial_state : State,
-  reduce : (Char) -> (State) -> State,
+  reduce : (Char, State) -> State,
   string : StringString,
 ) -> State {
   String::rev_fold(string_string_to_string(string), init=initial_state, fn(
     so_far,
     char,
   ) {
-    reduce(char)(so_far)
+    reduce(char, so_far)
   })
 }
 """
