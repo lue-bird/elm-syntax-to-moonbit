@@ -938,29 +938,14 @@ type_ :
 type_ context inferredType =
     case inferredType of
         ElmSyntaxTypeInfer.TypeVariable variable ->
-            if variable.name |> String.startsWith "number" then
-                moonbitTypeDouble
-
-            else
-                MoonbitTypeVariable
-                    (variable.name
-                        |> toPascalCaseMoonbitName
-                    )
+            MoonbitTypeVariable
+                (variable.name
+                    |> toPascalCaseMoonbitName
+                )
 
         ElmSyntaxTypeInfer.TypeNotVariable inferredTypeNotVariable ->
             typeNotVariable context
                 inferredTypeNotVariable
-
-
-moonbitTypeDouble : MoonbitType
-moonbitTypeDouble =
-    MoonbitTypeConstruct
-        { qualification = []
-        , name = "Double"
-        , arguments = []
-        , isShow = True
-        , isEq = True
-        }
 
 
 typeNotVariable :
@@ -3115,7 +3100,6 @@ referenceToCoreMoonbit reference =
                         , name = "PI"
                         }
 
-                -- TODO below
                 "ceiling" ->
                     Just
                         { qualification = []
@@ -9014,7 +8998,10 @@ expression context expressionTypedNode =
                 (\elements ->
                     case elements of
                         [] ->
-                            moonbitExpressionReferenceListListEmpty
+                            MoonbitExpressionCall
+                                { called = moonbitExpressionReferenceListEmpty
+                                , arguments = []
+                                }
 
                         element0 :: element1Up ->
                             MoonbitExpressionCall
@@ -9524,11 +9511,11 @@ moonbitExpressionPrependStatements statements result =
             result
 
 
-moonbitExpressionReferenceListListEmpty : MoonbitExpression
-moonbitExpressionReferenceListListEmpty =
-    MoonbitExpressionReferenceVariant
-        { originTypeName = [ "ListList" ]
-        , name = "Empty"
+moonbitExpressionReferenceListEmpty : MoonbitExpression
+moonbitExpressionReferenceListEmpty =
+    MoonbitExpressionReference
+        { qualification = [ "list" ]
+        , name = "empty"
         }
 
 
@@ -9604,25 +9591,33 @@ moonbitExpressionReferenceDeclaredFnAppliedLazilyOrCurriedIfNecessary context mo
                         , moonbitEnumTypes = context.moonbitEnumTypes
                         }
             , expression =
-                MoonbitExpressionCall
-                    { called =
+                case parameterCount of
+                    0 ->
                         MoonbitExpressionReference
                             { qualification = moonbitReference.qualification
                             , name = moonbitReference.name
                             }
-                    , arguments =
-                        List.range 0 (parameterCount - 1)
-                            |> List.map
-                                (\parameterIndex ->
-                                    MoonbitExpressionReference
-                                        { qualification = []
-                                        , name =
-                                            generatedParameterNameForIndexAtPath
-                                                parameterIndex
-                                                context.path
-                                        }
-                                )
-                    }
+
+                    parameterCountAtLeast1 ->
+                        MoonbitExpressionCall
+                            { called =
+                                MoonbitExpressionReference
+                                    { qualification = moonbitReference.qualification
+                                    , name = moonbitReference.name
+                                    }
+                            , arguments =
+                                List.range 0 (parameterCountAtLeast1 - 1)
+                                    |> List.map
+                                        (\parameterIndex ->
+                                            MoonbitExpressionReference
+                                                { qualification = []
+                                                , name =
+                                                    generatedParameterNameForIndexAtPath
+                                                        parameterIndex
+                                                        context.path
+                                                }
+                                        )
+                            }
             }
         |> .expression
 
