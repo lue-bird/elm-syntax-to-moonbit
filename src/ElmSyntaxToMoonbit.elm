@@ -39,7 +39,6 @@ type MoonbitType
         { qualification : List String
         , name : String
         , arguments : List MoonbitType
-        , isCopy : Bool
         , isEq : Bool
         , isShow : Bool
         }
@@ -515,8 +514,7 @@ choiceTypeDeclaration :
     , moonbitEnumTypes :
         FastDict.Dict
             String
-            { isCopy : Bool
-            , isShow : Bool
+            { isShow : Bool
             , isEq : Bool
             , variantReferencedValueIndexes : FastDict.Dict String (List Int)
             }
@@ -528,7 +526,6 @@ choiceTypeDeclaration :
     ->
         { parameters : List String
         , variants : FastDict.Dict String (List MoonbitType)
-        , isCopy : Bool
         , isShow : Bool
         , isEq : Bool
         }
@@ -555,16 +552,6 @@ choiceTypeDeclaration context syntaxChoiceType =
         syntaxChoiceType.parameters
             |> List.map toPascalCaseMoonbitName
     , variants = moonbitVariants
-    , isCopy =
-        moonbitVariants
-            |> fastDictAll
-                (\_ values ->
-                    values
-                        |> List.all
-                            (\value ->
-                                value |> moonbitTypeIsCopy { variablesAreCopy = True }
-                            )
-                )
     , isShow =
         moonbitVariants
             |> fastDictAll
@@ -715,47 +702,6 @@ moonbitTypeIsShow context moonbitType =
                         |> List.all
                             (\argument ->
                                 argument |> moonbitTypeIsShow context
-                            )
-                   )
-
-
-moonbitTypeIsCopy : { variablesAreCopy : Bool } -> MoonbitType -> Bool
-moonbitTypeIsCopy context moonbitType =
-    -- IGNORE TCO
-    case moonbitType of
-        MoonbitTypeInfer ->
-            False
-
-        MoonbitTypeFunction _ ->
-            -- only if it's captures are Copy
-            False
-
-        MoonbitTypeVariable _ ->
-            context.variablesAreCopy
-
-        MoonbitTypeTuple parts ->
-            (parts.part0 |> moonbitTypeIsCopy context)
-                && (parts.part1 |> moonbitTypeIsCopy context)
-                && (parts.part2Up
-                        |> List.all
-                            (\part ->
-                                part |> moonbitTypeIsCopy context
-                            )
-                   )
-
-        MoonbitTypeRecordStruct recordStruct ->
-            recordStruct.fields
-                |> fastDictAll
-                    (\_ fieldValue ->
-                        fieldValue |> moonbitTypeIsCopy context
-                    )
-
-        MoonbitTypeConstruct typeConstruct ->
-            typeConstruct.isCopy
-                && (typeConstruct.arguments
-                        |> List.all
-                            (\argument ->
-                                argument |> moonbitTypeIsCopy context
                             )
                    )
 
@@ -914,8 +860,7 @@ typeAliasDeclaration :
     , moonbitEnumTypes :
         FastDict.Dict
             String
-            { isCopy : Bool
-            , isShow : Bool
+            { isShow : Bool
             , isEq : Bool
             , variantReferencedValueIndexes : FastDict.Dict String (List Int)
             }
@@ -983,8 +928,7 @@ type_ :
     , moonbitEnumTypes :
         FastDict.Dict
             String
-            { isCopy : Bool
-            , isShow : Bool
+            { isShow : Bool
             , isEq : Bool
             , variantReferencedValueIndexes : FastDict.Dict String (List Int)
             }
@@ -1014,7 +958,6 @@ moonbitTypeDouble =
         { qualification = []
         , name = "Double"
         , arguments = []
-        , isCopy = True
         , isShow = True
         , isEq = True
         }
@@ -1035,8 +978,7 @@ typeNotVariable :
     , moonbitEnumTypes :
         FastDict.Dict
             String
-            { isCopy : Bool
-            , isShow : Bool
+            { isShow : Bool
             , isEq : Bool
             , variantReferencedValueIndexes : FastDict.Dict String (List Int)
             }
@@ -1053,7 +995,6 @@ typeNotVariable context inferredTypeNotVariable =
                 , arguments = []
                 , isEq = True
                 , isShow = True
-                , isCopy = True
                 }
 
         ElmSyntaxTypeInfer.TypeConstruct typeConstruct ->
@@ -1077,7 +1018,6 @@ typeNotVariable context inferredTypeNotVariable =
                         { arguments = moonbitArguments
                         , name = coreMoonbit.name
                         , qualification = coreMoonbit.qualification
-                        , isCopy = coreMoonbit.isCopy
                         , isShow = coreMoonbit.isShow
                         , isEq = coreMoonbit.isEq
                         }
@@ -1117,9 +1057,6 @@ typeNotVariable context inferredTypeNotVariable =
                             { arguments = moonbitArguments
                             , qualification = []
                             , name = moonbitName
-                            , isCopy =
-                                expandedMoonbitType
-                                    |> moonbitTypeIsCopy { variablesAreCopy = True }
                             , isShow =
                                 expandedMoonbitType
                                     |> moonbitTypeIsShow { variablesAreShow = True }
@@ -1137,11 +1074,6 @@ typeNotVariable context inferredTypeNotVariable =
                                     { arguments = moonbitArguments
                                     , qualification = []
                                     , name = moonbitName
-                                    , isCopy =
-                                        -- this assumption works because any mention
-                                        -- of a mutually recursive type will
-                                        -- be behind a & in practice
-                                        True
                                     , isShow = {- TODO this is a wrong assumption -} True
                                     , isEq = {- TODO this is a wrong assumption -} True
                                     }
@@ -1151,7 +1083,6 @@ typeNotVariable context inferredTypeNotVariable =
                                     { arguments = moonbitArguments
                                     , qualification = []
                                     , name = moonbitName
-                                    , isCopy = originMoonbitEnumType.isCopy
                                     , isShow = originMoonbitEnumType.isShow
                                     , isEq = originMoonbitEnumType.isEq
                                     }
@@ -1975,8 +1906,7 @@ pattern :
     , moonbitEnumTypes :
         FastDict.Dict
             String
-            { isCopy : Bool
-            , isShow : Bool
+            { isShow : Bool
             , isEq : Bool
             , variantReferencedValueIndexes : FastDict.Dict String (List Int)
             }
@@ -2380,8 +2310,7 @@ patternListExact :
     , moonbitEnumTypes :
         FastDict.Dict
             String
-            { isCopy : Bool
-            , isShow : Bool
+            { isShow : Bool
             , isEq : Bool
             , variantReferencedValueIndexes : FastDict.Dict String (List Int)
             }
@@ -2422,7 +2351,6 @@ typeConstructReferenceToCoreMoonbit :
         Maybe
             { qualification : List String
             , name : String
-            , isCopy : Bool
             , isShow : Bool
             , isEq : Bool
             }
@@ -2434,7 +2362,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "BasicsOrder"
-                        , isCopy = True
                         , isShow = True
                         , isEq = True
                         }
@@ -2452,7 +2379,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "BasicsNever"
-                        , isCopy = True
                         , isShow = True
                         , isEq = True
                         }
@@ -2477,7 +2403,6 @@ typeConstructReferenceToCoreMoonbit reference =
             Just
                 { qualification = [ "immut", "array" ]
                 , name = "Array"
-                , isCopy = True
                 , isShow = True
                 , isEq = True
                 }
@@ -2487,7 +2412,6 @@ typeConstructReferenceToCoreMoonbit reference =
             Just
                 { qualification = [ "immut", "sorted_map" ]
                 , name = "SortedMap"
-                , isCopy = True
                 , isShow = True
                 , isEq = True
                 }
@@ -2497,7 +2421,6 @@ typeConstructReferenceToCoreMoonbit reference =
             Just
                 { qualification = [ "immut", "sorted_set" ]
                 , name = "SortedSet"
-                , isCopy = True
                 , isShow = True
                 , isEq = True
                 }
@@ -2515,7 +2438,6 @@ typeConstructReferenceToCoreMoonbit reference =
             Just
                 { qualification = []
                 , name = "JsonValue"
-                , isCopy = True
                 , isShow = True
                 , isEq = True
                 }
@@ -2526,7 +2448,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "JsonValue"
-                        , isCopy = True
                         , isShow = True
                         , isEq = True
                         }
@@ -2535,7 +2456,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "JsonDecodeDecoder"
-                        , isCopy = True
                         , isShow = False
                         , isEq = False
                         }
@@ -2544,7 +2464,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "JsonDecodeError"
-                        , isCopy = True
                         , isShow = True
                         , isEq = True
                         }
@@ -2558,7 +2477,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "RandomSeed"
-                        , isCopy = True
                         , isShow = True
                         , isEq = True
                         }
@@ -2567,7 +2485,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "RandomGenerator"
-                        , isCopy = False
                         , isShow = False
                         , isEq = False
                         }
@@ -2581,7 +2498,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "TimePosix"
-                        , isCopy = True
                         , isShow = True
                         , isEq = True
                         }
@@ -2590,7 +2506,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "TimeZone"
-                        , isCopy = True
                         , isShow = True
                         , isEq = True
                         }
@@ -2599,7 +2514,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "TimeMonth"
-                        , isCopy = True
                         , isShow = True
                         , isEq = True
                         }
@@ -2608,7 +2522,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "TimeWeekday"
-                        , isCopy = True
                         , isShow = True
                         , isEq = True
                         }
@@ -2617,7 +2530,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "TimeZoneName"
-                        , isCopy = True
                         , isShow = True
                         , isEq = True
                         }
@@ -2631,7 +2543,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "BytesEndianness"
-                        , isCopy = True
                         , isShow = True
                         , isEq = True
                         }
@@ -2640,7 +2551,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "BytesBytes"
-                        , isCopy = True
                         , isShow = True
                         , isEq = True
                         }
@@ -2654,7 +2564,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "BytesDecodeDecoder"
-                        , isCopy = True
                         , isShow = False
                         , isEq = False
                         }
@@ -2663,7 +2572,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "BytesDecodeStep"
-                        , isCopy = True
                         , isShow = True
                         , isEq = True
                         }
@@ -2676,7 +2584,6 @@ typeConstructReferenceToCoreMoonbit reference =
             Just
                 { qualification = []
                 , name = "BytesEncodeEncoder"
-                , isCopy = True
                 , isShow = True
                 , isEq = True
                 }
@@ -2687,7 +2594,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "VirtualDomNode"
-                        , isCopy = True
                         , isShow = False
                         , isEq = False
                         }
@@ -2696,7 +2602,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "VirtualDomAttribute"
-                        , isCopy = True
                         , isShow = False
                         , isEq = False
                         }
@@ -2705,7 +2610,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "VirtualDomHandler"
-                        , isCopy = True
                         , isShow = False
                         , isEq = False
                         }
@@ -2719,7 +2623,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "MathVector2Vec2"
-                        , isCopy = True
                         , isShow = True
                         , isEq = True
                         }
@@ -2733,7 +2636,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "MathVector3Vec3"
-                        , isCopy = True
                         , isShow = True
                         , isEq = True
                         }
@@ -2747,7 +2649,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "MathVector4Vec4"
-                        , isCopy = True
                         , isShow = True
                         , isEq = True
                         }
@@ -2765,7 +2666,6 @@ typeConstructReferenceToCoreMoonbit reference =
                     Just
                         { qualification = []
                         , name = "PlatformProgram"
-                        , isCopy = True
                         , isShow = False
                         , isEq = False
                         }
@@ -2779,7 +2679,6 @@ typeConstructReferenceToCoreMoonbit reference =
             Just
                 { qualification = []
                 , name = "PlatformCmdCmd"
-                , isCopy = True
                 , isShow = True
                 , isEq = True
                 }
@@ -2789,7 +2688,6 @@ typeConstructReferenceToCoreMoonbit reference =
             Just
                 { qualification = []
                 , name = "PlatformSubSub"
-                , isCopy = True
                 , isShow = False
                 , isEq = False
                 }
@@ -2802,7 +2700,6 @@ justMoonbitReferenceInt64 :
     Maybe
         { qualification : List String
         , name : String
-        , isCopy : Bool
         , isShow : Bool
         , isEq : Bool
         }
@@ -2813,14 +2710,12 @@ justMoonbitReferenceInt64 =
 moonbitReferenceInt64 :
     { qualification : List String
     , name : String
-    , isCopy : Bool
     , isShow : Bool
     , isEq : Bool
     }
 moonbitReferenceInt64 =
     { qualification = []
     , name = "Int64"
-    , isCopy = True
     , isShow = True
     , isEq = True
     }
@@ -2830,7 +2725,6 @@ justMoonbitReferenceDouble :
     Maybe
         { qualification : List String
         , name : String
-        , isCopy : Bool
         , isShow : Bool
         , isEq : Bool
         }
@@ -2841,14 +2735,12 @@ justMoonbitReferenceDouble =
 moonbitReferenceDouble :
     { qualification : List String
     , name : String
-    , isCopy : Bool
     , isShow : Bool
     , isEq : Bool
     }
 moonbitReferenceDouble =
     { qualification = []
     , name = "Double"
-    , isCopy = True
     , isShow = True
     , isEq = True
     }
@@ -2858,7 +2750,6 @@ justMoonbitReferenceBool :
     Maybe
         { qualification : List String
         , name : String
-        , isCopy : Bool
         , isShow : Bool
         , isEq : Bool
         }
@@ -2866,7 +2757,6 @@ justMoonbitReferenceBool =
     Just
         { qualification = []
         , name = "Bool"
-        , isCopy = True
         , isShow = True
         , isEq = True
         }
@@ -2876,7 +2766,6 @@ justMoonbitReferenceStringString :
     Maybe
         { qualification : List String
         , name : String
-        , isCopy : Bool
         , isShow : Bool
         , isEq : Bool
         }
@@ -2884,7 +2773,6 @@ justMoonbitReferenceStringString =
     Just
         { qualification = []
         , name = "StringString"
-        , isCopy = True
         , isShow = True
         , isEq = True
         }
@@ -2896,7 +2784,6 @@ moonbitTypeStringString =
         { qualification = []
         , name = "StringString"
         , arguments = []
-        , isCopy = True
         , isShow = True
         , isEq = True
         }
@@ -2906,7 +2793,6 @@ justMoonbitReferenceChar :
     Maybe
         { qualification : List String
         , name : String
-        , isCopy : Bool
         , isShow : Bool
         , isEq : Bool
         }
@@ -2914,7 +2800,6 @@ justMoonbitReferenceChar =
     Just
         { qualification = []
         , name = "Char"
-        , isCopy = True
         , isShow = True
         , isEq = True
         }
@@ -2924,7 +2809,6 @@ justMoonbitReferenceListList :
     Maybe
         { qualification : List String
         , name : String
-        , isCopy : Bool
         , isShow : Bool
         , isEq : Bool
         }
@@ -2932,7 +2816,6 @@ justMoonbitReferenceListList =
     Just
         { qualification = [ "list" ]
         , name = "List"
-        , isCopy = True
         , isShow = True
         , isEq = True
         }
@@ -2942,7 +2825,6 @@ justMoonbitReferenceOption :
     Maybe
         { qualification : List String
         , name : String
-        , isCopy : Bool
         , isShow : Bool
         , isEq : Bool
         }
@@ -2950,7 +2832,6 @@ justMoonbitReferenceOption =
     Just
         { qualification = []
         , name = "Option"
-        , isCopy = True
         , isShow = True
         , isEq = True
         }
@@ -2960,7 +2841,6 @@ justMoonbitReferenceResultResult :
     Maybe
         { qualification : List String
         , name : String
-        , isCopy : Bool
         , isShow : Bool
         , isEq : Bool
         }
@@ -2968,7 +2848,6 @@ justMoonbitReferenceResultResult =
     Just
         { qualification = []
         , name = "ResultResult"
-        , isCopy = True
         , isShow = True
         , isEq = True
         }
@@ -6135,8 +6014,7 @@ modules syntaxDeclarationsIncludingOverwrittenOnes =
                     , moonbitEnumTypes :
                         FastDict.Dict
                             String
-                            { isCopy : Bool
-                            , isShow : Bool
+                            { isShow : Bool
                             , isEq : Bool
                             , variantReferencedValueIndexes : FastDict.Dict String (List Int)
                             }
@@ -6305,8 +6183,7 @@ modules syntaxDeclarationsIncludingOverwrittenOnes =
                                         , moonbitEnumTypes :
                                             FastDict.Dict
                                                 String
-                                                { isCopy : Bool
-                                                , isShow : Bool
+                                                { isShow : Bool
                                                 , isEq : Bool
                                                 , variantReferencedValueIndexes : FastDict.Dict String (List Int)
                                                 }
@@ -6363,7 +6240,6 @@ modules syntaxDeclarationsIncludingOverwrittenOnes =
                                                                         moonbitEnumDeclaration :
                                                                             { parameters : List String
                                                                             , variants : FastDict.Dict String (List MoonbitType)
-                                                                            , isCopy : Bool
                                                                             , isShow : Bool
                                                                             , isEq : Bool
                                                                             }
@@ -6380,8 +6256,7 @@ modules syntaxDeclarationsIncludingOverwrittenOnes =
                                                                     , moonbitEnumTypes =
                                                                         soFar.moonbitEnumTypes
                                                                             |> FastDict.insert moonbitName
-                                                                                { isCopy = moonbitEnumDeclaration.isCopy
-                                                                                , isShow = moonbitEnumDeclaration.isShow
+                                                                                { isShow = moonbitEnumDeclaration.isShow
                                                                                 , isEq = moonbitEnumDeclaration.isEq
                                                                                 , variantReferencedValueIndexes = FastDict.empty
                                                                                 }
@@ -6469,7 +6344,6 @@ modules syntaxDeclarationsIncludingOverwrittenOnes =
                                                                                     moonbitEnumDeclaration :
                                                                                         { parameters : List String
                                                                                         , variants : FastDict.Dict String (List MoonbitType)
-                                                                                        , isCopy : Bool
                                                                                         , isShow : Bool
                                                                                         , isEq : Bool
                                                                                         }
@@ -6486,8 +6360,7 @@ modules syntaxDeclarationsIncludingOverwrittenOnes =
                                                                                 , moonbitEnumTypes =
                                                                                     withCycleDeclarationsSoFar.moonbitEnumTypes
                                                                                         |> FastDict.insert moonbitName
-                                                                                            { isCopy = moonbitEnumDeclaration.isCopy
-                                                                                            , isShow = moonbitEnumDeclaration.isShow
+                                                                                            { isShow = moonbitEnumDeclaration.isShow
                                                                                             , isEq = moonbitEnumDeclaration.isEq
                                                                                             , variantReferencedValueIndexes =
                                                                                                 moonbitEnumDeclaration.variants
@@ -7082,8 +6955,7 @@ valueOrFunctionDeclaration :
     , moonbitEnumTypes :
         FastDict.Dict
             String
-            { isCopy : Bool
-            , isShow : Bool
+            { isShow : Bool
             , isEq : Bool
             , variantReferencedValueIndexes : FastDict.Dict String (List Int)
             }
@@ -7601,8 +7473,7 @@ type alias ExpressionToMoonbitContext =
     , moonbitEnumTypes :
         FastDict.Dict
             String
-            { isCopy : Bool
-            , isShow : Bool
+            { isShow : Bool
             , isEq : Bool
             , variantReferencedValueIndexes : FastDict.Dict String (List Int)
             }
@@ -9633,7 +9504,6 @@ moonbitTypeJsonValue : MoonbitType
 moonbitTypeJsonValue =
     MoonbitTypeConstruct
         { qualification = []
-        , isCopy = True
         , isShow = True
         , isEq = True
         , name = "JsonValue"
@@ -12252,8 +12122,8 @@ expressionOperatorToMoonbitFunctionReference operator =
                             IntNotFloat
                  of
                     FloatNotInt ->
-                        { qualification = [ "Double" ]
-                        , name = "powf"
+                        { qualification = [ "math" ]
+                        , name = "pow"
                         }
 
                     IntNotFloat ->
