@@ -2930,7 +2930,7 @@ justMoonbitReferenceListList :
         }
 justMoonbitReferenceListList =
     Just
-        { qualification = [ "@list" ]
+        { qualification = [ "list" ]
         , name = "List"
         , isCopy = True
         , isShow = True
@@ -3402,25 +3402,9 @@ referenceToCoreMoonbit reference =
 
                 "clamp" ->
                     Just
-                        (case
-                            case reference.type_ of
-                                ElmSyntaxTypeInfer.TypeNotVariable (ElmSyntaxTypeInfer.TypeFunction typeFunction) ->
-                                    typeFunction.input |> inferredTypeCheckOrGuessIntOrFloat
-
-                                _ ->
-                                    -- assume Int
-                                    IntNotFloat
-                         of
-                            FloatNotInt ->
-                                { qualification = []
-                                , name = "basics_clamp_float"
-                                }
-
-                            IntNotFloat ->
-                                { qualification = []
-                                , name = "basics_clamp_int"
-                                }
-                        )
+                        { qualification = []
+                        , name = "basics_clamp"
+                        }
 
                 "never" ->
                     Just
