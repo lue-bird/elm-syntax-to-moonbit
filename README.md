@@ -116,6 +116,6 @@ In the transpiled code, you will find these types:
 
 ### improvement ideas
 
-- try and benchmark switching `String` representation from `One &str | Append String String` to `StringBuilder -> StringBuilder`
+- try and benchmark switching `String` representation from `One &str | Append String String` to `(StringBuilder) -> StringBuilder`
 - if lambda is called with a function, always inline that function
 - your idea 👀

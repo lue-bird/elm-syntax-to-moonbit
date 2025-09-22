@@ -29605,6 +29605,23 @@ defaultDeclarations =
 // below first some default declarations included in every transpiled bundle
 
 ///|
+pub fn[S : Show] debug_to_string(thing : S) -> StringString {
+  StringString::One(S::to_string(thing))
+}
+
+///|
+pub fn[S : Show] debug_log(tag : StringString, thing : S) -> S {
+  println("\\{string_string_to_string(tag)}: \\{thing}")
+  thing
+}
+
+///|
+pub fn[S] debug_todo(message : StringString) -> S {
+  println("\\{string_string_to_string(message)}")
+  ...
+}
+
+///|
 pub fn[A] basics_identity(thing : A) -> A {
   thing
 }
