@@ -1,3 +1,40 @@
+// All random_* and Random* declarations are
+// derived and modified from elm/random.
+// All time_* and Time* declarations are
+// derived and modified from elm/time.
+// Both elm/random and elm/time are licensed under:
+// 
+// Copyright (c) 2018-present, Evan Czaplicki
+// 
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+// 
+//     * Redistributions of source code must retain the above copyright
+//       notice, this list of conditions and the following disclaimer.
+// 
+//     * Redistributions in binary form must reproduce the above
+//       copyright notice, this list of conditions and the following
+//       disclaimer in the documentation and/or other materials provided
+//       with the distribution.
+// 
+//     * Neither the name of Evan Czaplicki nor the names of other
+//       contributors may be used to endorse or promote products derived
+//       from this software without specific prior written permission.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 ///|
 pub fn[S : Show] debug_to_string(thing : S) -> StringString {
   StringString::One(S::to_string(thing))
@@ -187,6 +224,11 @@ pub fn basics_floor(float : Double) -> Int64 {
 ///|
 pub fn basics_round(float : Double) -> Int64 {
   Double::to_int64(Double::round(float))
+}
+
+///|
+pub fn basics_truncate(float : Double) -> Int64 {
+  Double::to_int64(float)
 }
 
 ///|
@@ -1539,4 +1581,203 @@ pub fn[State] string_foldr(
   ) {
     reduce(char, so_far)
   })
+}
+
+///|
+pub(all) struct GeneratedOffsetStart[Offset, Start] {
+  offset : Offset
+  start : Start
+} derive(Eq, Show)
+
+///|
+struct TimeCivil {
+  day : Int64
+  month : Int64
+  year : Int64
+}
+
+///|
+pub(all) enum TimeMonth {
+  Apr
+  Aug
+  Dec
+  Feb
+  Jan
+  Jul
+  Jun
+  Mar
+  May
+  Nov
+  Oct
+  Sep
+} derive(Eq, Show)
+
+///|
+pub(all) enum TimePosix {
+  Posix(Int64)
+} derive(Eq, Show)
+
+///|
+pub(all) enum TimeWeekday {
+  Fri
+  Mon
+  Sat
+  Sun
+  Thu
+  Tue
+  Wed
+} derive(Eq, Show)
+
+///|
+pub typealias GeneratedOffsetStart[Int64, Int64] as TimeEra
+
+///|
+pub enum TimeZone {
+  Zone(Int64, @list.List[TimeEra])
+} derive(Eq, Show)
+
+///|
+pub enum TimeZoneName {
+  Name(StringString)
+  Offset(Int64)
+} derive(Eq, Show)
+
+///|
+pub fn time_custom_zone(
+  default_offset_in_minutes : Int64,
+  eras : @list.List[GeneratedOffsetStart[Int64, Int64]],
+) -> TimeZone {
+  TimeZone::Zone(default_offset_in_minutes, eras)
+}
+
+///|
+pub fn time_millis_to_posix(milliseconds : Int64) -> TimePosix {
+  TimePosix::Posix(milliseconds)
+}
+
+///|
+pub fn time_posix_to_millis(time_posix : TimePosix) -> Int64 {
+  let TimePosix::Posix(millis) = time_posix
+  millis
+}
+
+///|
+pub fn time_to_adjusted_minutes(
+  time_zone : TimeZone,
+  time : TimePosix,
+) -> Int64 {
+  let TimeZone::Zone(default_offset, eras) = time_zone
+  time_to_adjusted_minutes_help(
+    default_offset,
+    time_posix_to_millis(time) / 60000L,
+    eras,
+  )
+}
+
+///|
+pub fn time_to_adjusted_minutes_help(
+  default_offset : Int64,
+  posix_minutes : Int64,
+  eras : @list.List[GeneratedOffsetStart[Int64, Int64]],
+) -> Int64 {
+  match eras {
+    @list.List::Empty => posix_minutes + default_offset
+    @list.List::More(era, tail=older_eras) =>
+      if era.start < posix_minutes {
+        posix_minutes + era.offset
+      } else {
+        time_to_adjusted_minutes_help(default_offset, posix_minutes, older_eras)
+      }
+  }
+}
+
+///|
+fn time_to_civil(minutes : Int64) -> TimeCivil {
+  let raw_day : Int64 = minutes / (60L * 24L) + 719468L
+  let era : Int64 = (if raw_day >= 0L { raw_day } else { raw_day - 146096L }) /
+    146097L
+  let day_of_era : Int64 = raw_day - era * 146097L
+  let year_of_era : Int64 = (
+      day_of_era -
+      day_of_era / 1460L +
+      day_of_era / 36524L -
+      day_of_era / 146096L
+    ) /
+    365L
+  let day_of_year : Int64 = day_of_era -
+    (365L * year_of_era + year_of_era / 4L - year_of_era / 100L)
+  let mp : Int64 = (5L * day_of_year + 2L) / 153L
+  let month : Int64 = mp + (if mp < 10L { 3L } else { -9L })
+  let year : Int64 = year_of_era + era * 400L
+  TimeCivil::{
+    day: day_of_year - (153L * mp + 2L) / 5L + 1L,
+    month,
+    year: year + (if month <= 2L { 1L } else { 0L }),
+  }
+}
+
+///|
+pub fn time_to_day(zone : TimeZone, time : TimePosix) -> Int64 {
+  time_to_civil(time_to_adjusted_minutes(zone, time)).day
+}
+
+///|
+pub fn time_to_hour(zone : TimeZone, time : TimePosix) -> Int64 {
+  time_to_adjusted_minutes(zone, time) / 60L % 24L
+}
+
+///|
+pub fn time_to_millis(_ : TimeZone, time : TimePosix) -> Int64 {
+  time_posix_to_millis(time) % 1000L
+}
+
+///|
+pub fn time_to_minute(zone : TimeZone, time : TimePosix) -> Int64 {
+  time_to_adjusted_minutes(zone, time) % 60L
+}
+
+///|
+pub fn time_to_month(zone : TimeZone, time : TimePosix) -> TimeMonth {
+  match time_to_civil(time_to_adjusted_minutes(zone, time)).month {
+    1L => TimeMonth::Jan
+    2L => TimeMonth::Feb
+    3L => TimeMonth::Mar
+    4L => TimeMonth::Apr
+    5L => TimeMonth::May
+    6L => TimeMonth::Jun
+    7L => TimeMonth::Jul
+    8L => TimeMonth::Aug
+    9L => TimeMonth::Sep
+    10L => TimeMonth::Oct
+    11L => TimeMonth::Nov
+    _ => TimeMonth::Dec
+  }
+}
+
+///|
+pub fn time_to_second(_ : TimeZone, time : TimePosix) -> Int64 {
+  time_posix_to_millis(time) / 1000L % 60L
+}
+
+///|
+pub fn time_to_weekday(zone : TimeZone, time : TimePosix) -> TimeWeekday {
+  match time_to_adjusted_minutes(zone, time) / (60L * 24L) % 7L {
+    0L => TimeWeekday::Thu
+    1L => TimeWeekday::Fri
+    2L => TimeWeekday::Sat
+    3L => TimeWeekday::Sun
+    4L => TimeWeekday::Mon
+    5L => TimeWeekday::Tue
+    _ => TimeWeekday::Wed
+  }
+}
+
+///|
+pub fn time_to_year(zone : TimeZone, time : TimePosix) -> Int64 {
+  time_to_civil(time_to_adjusted_minutes(zone, time)).year
+}
+
+///|
+pub fn time_utc() -> TimeZone {
+  TimeZone::Zone(0L, @list.empty())
 }
