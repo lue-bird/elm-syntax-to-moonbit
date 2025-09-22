@@ -29752,6 +29752,11 @@ pub fn[C : Compare] basics_clamp(minimum : C, maximum : C, n : C) -> C {
 pub fnalias Int64::to_double as basics_to_float
 
 ///|
+pub fn basics_pow_int(n : Int64, exponent : Int64) -> Int64 {
+  Double::to_int64(@math.pow(Int64::to_double(n), Int64::to_double(exponent)))
+}
+
+///|
 pub(all) enum BasicsNever {}
 
 ///|
