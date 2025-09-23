@@ -2094,6 +2094,103 @@ pub fn[K : Compare, VA, VB, State] dict_merge(
 }
 
 ///|
+pub(all) enum PlatformCmdCmd[Event] {
+  PortOutgoing(String, Json)
+  Batch(@list.List[PlatformCmdCmd[Event]])
+} derive(Eq, Show)
+
+///|
+pub fn[Event] platform_cmd_none() -> PlatformCmdCmd[Event] {
+  PlatformCmdCmd::Batch(@list.empty())
+}
+
+///|
+pub fn[Event] platform_cmd_batch(
+  cmds : @list.List[PlatformCmdCmd[Event]],
+) -> PlatformCmdCmd[Event] {
+  PlatformCmdCmd::Batch(cmds)
+}
+
+///|
+pub fn[A, B] platform_cmd_map(
+  event_change : (A) -> B,
+  cmd : PlatformCmdCmd[A],
+) -> PlatformCmdCmd[B] {
+  match cmd {
+    PlatformCmdCmd::PortOutgoing(name, json) =>
+      PlatformCmdCmd::PortOutgoing(name, json)
+    PlatformCmdCmd::Batch(subs) =>
+      PlatformCmdCmd::Batch(
+        @list.List::map(subs, fn(sub_sub) {
+          platform_cmd_map(event_change, sub_sub)
+        }),
+      )
+  }
+}
+
+///|
+pub enum PlatformSubSub[Event] {
+  PortIncoming(String, (Json) -> Event)
+  Batch(@list.List[PlatformSubSub[Event]])
+}
+
+///|
+pub fn[Event] platform_sub_none() -> PlatformSubSub[Event] {
+  PlatformSubSub::Batch(@list.empty())
+}
+
+///|
+pub fn[Event] platform_sub_batch(
+  subs : @list.List[PlatformSubSub[Event]],
+) -> PlatformSubSub[Event] {
+  PlatformSubSub::Batch(subs)
+}
+
+///|
+pub fn[A, B] platform_sub_map(
+  event_change : (A) -> B,
+  sub : PlatformSubSub[A],
+) -> PlatformSubSub[B] {
+  match sub {
+    PlatformSubSub::Batch(subs) =>
+      PlatformSubSub::Batch(
+        @list.List::map(subs, fn(sub_sub) {
+          platform_sub_map(event_change, sub_sub)
+        }),
+      )
+    PlatformSubSub::PortIncoming(name, on_data) =>
+      PlatformSubSub::PortIncoming(name, fn(data) {
+        event_change(on_data(data))
+      })
+  }
+}
+
+///|
+pub(all) struct GeneratedInitSubscriptionsUpdate[Init, Subscriptions, Update] {
+  init : Init
+  update : Update
+  subscriptions : Subscriptions
+} derive(Eq, Show)
+
+///|
+pub typealias GeneratedInitSubscriptionsUpdate[
+  (Flags) -> (State, PlatformCmdCmd[Event]),
+  (State) -> PlatformSubSub[Event],
+  (Event) -> (State) -> (State, PlatformCmdCmd[Event]),
+] as PlatformProgram[Flags, State, Event]
+
+///|
+pub fn[Flags, State, Event] platform_worker(
+  config : GeneratedInitSubscriptionsUpdate[
+    (Flags) -> (State, PlatformCmdCmd[Event]),
+    (State) -> PlatformSubSub[Event],
+    (Event) -> (State) -> (State, PlatformCmdCmd[Event]),
+  ],
+) -> PlatformProgram[Flags, State, Event] {
+  config
+}
+
+///|
 pub(all) struct GeneratedOffsetStart[Offset, Start] {
   offset : Offset
   start : Start
