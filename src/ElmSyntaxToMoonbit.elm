@@ -2484,7 +2484,7 @@ typeConstructReferenceToCoreMoonbit reference =
             -- "Array" is the only possible reference.name
             Just
                 { qualification = [ "immut", "array" ]
-                , name = "Array"
+                , name = "T"
                 , isShow = True
                 , isEq = True
                 }
@@ -4149,8 +4149,8 @@ referenceToCoreMoonbit reference =
 
                 "empty" ->
                     Just
-                        { qualification = []
-                        , name = "array_empty"
+                        { qualification = [ "immut", "array" ]
+                        , name = "new"
                         }
 
                 "singleton" ->
@@ -4159,16 +4159,16 @@ referenceToCoreMoonbit reference =
                         , name = "array_singleton"
                         }
 
-                "initialize" ->
-                    Just
-                        { qualification = []
-                        , name = "array_initialize"
-                        }
-
                 "repeat" ->
                     Just
                         { qualification = []
                         , name = "array_repeat"
+                        }
+
+                "initialize" ->
+                    Just
+                        { qualification = []
+                        , name = "array_initialize"
                         }
 
                 "fromList" ->
@@ -31002,6 +31002,189 @@ pub fn[State] string_foldr(
   ) {
     reduce(char, so_far)
   })
+}
+
+///|
+pub fnalias @immut/array.T::is_empty as array_is_empty
+
+///|
+pub fn[A] array_length(array : @immut/array.T[A]) -> Int64 {
+  Int::to_int64(@immut/array.T::length(array))
+}
+
+///|
+pub fn[A] array_get(index : Int64, array : @immut/array.T[A]) -> A? {
+  @immut/array.T::get(array, Int64::to_int(index))
+}
+
+///|
+pub fn[A] array_singleton(only_element : A) -> @immut/array.T[A] {
+  @immut/array.of([only_element])
+}
+
+///|
+pub fn[A] array_repeat(length : Int64, element : A) -> @immut/array.T[A] {
+  @immut/array.make(Int64::to_int(length), element)
+}
+
+///|
+pub fn[A] array_from_list(list : @list.List[A]) -> @immut/array.T[A] {
+  @immut/array.from_iter(@list.List::iter(list))
+}
+
+///|
+pub fn[A] array_initialize(
+  length : Int64,
+  index_to_element : (Int64) -> A,
+) -> @immut/array.T[A] {
+  @immut/array.makei(Int64::to_int(length), fn(index) {
+    index_to_element(Int::to_int64(index))
+  })
+}
+
+///|
+pub fn[A] array_push(
+  new_last_element : A,
+  array : @immut/array.T[A],
+) -> @immut/array.T[A] {
+  @immut/array.T::push(array, new_last_element)
+}
+
+///|
+pub fn[A] array_set(
+  index : Int64,
+  new_element : A,
+  array : @immut/array.T[A],
+) -> @immut/array.T[A] {
+  @immut/array.T::set(array, Int64::to_int(index), new_element)
+}
+
+///|
+pub fn[A] array_slice(
+  start_inclusive_possibly_negative : Int64,
+  end_exclusive_possibly_negative : Int64,
+  array : @immut/array.T[A],
+) -> @immut/array.T[A] {
+  // can maybe be optimized
+  let start_inclusive = if start_inclusive_possibly_negative <= -1 {
+    Int::max(
+      0,
+      Int64::to_int(start_inclusive_possibly_negative) +
+      @immut/array.T::length(array),
+    )
+    // start_inclusive_possibly_negative >= 0
+  } else {
+    Int::min(
+      @immut/array.T::length(array),
+      Int64::to_int(start_inclusive_possibly_negative),
+    )
+  }
+  let end_exclusive = if end_exclusive_possibly_negative <= -1 {
+    Int::max(
+      0,
+      Int64::to_int(end_exclusive_possibly_negative) +
+      @immut/array.T::length(array),
+    )
+    // end_exclusive_possibly_negative >= 0
+  } else {
+    Int::min(
+      @immut/array.T::length(array),
+      Int64::to_int(end_exclusive_possibly_negative),
+    )
+  }
+  if start_inclusive >= end_exclusive {
+    @immut/array.new()
+  } else {
+    Array::sub(
+      @immut/array.T::to_array(array),
+      start=start_inclusive,
+      end=end_exclusive,
+    )
+    |> ArrayView::iter
+    |> @immut/array.T::from_iter
+  }
+}
+
+///|
+pub fn[A] array_reverse(array : @immut/array.T[A]) -> @immut/array.T[A] {
+  // can maybe be optimized
+  @immut/array.T::rev_fold(array, init=@immut/array.new(), fn(so_far, element) {
+    @immut/array.T::push(so_far, element)
+  })
+}
+
+///|
+pub fn[A] array_filter(
+  keep_element : (A) -> Bool,
+  array : @immut/array.T[A],
+) -> @immut/array.T[A] {
+  // can maybe be optimized
+  array
+  |> @immut/array.T::iter
+  |> Iter::filter(keep_element)
+  |> @immut/array.T::from_iter
+}
+
+///|
+pub fn[A, B] array_map(
+  element_change : (A) -> B,
+  array : @immut/array.T[A],
+) -> @immut/array.T[B] {
+  @immut/array.T::map(array, element_change)
+}
+
+///|
+pub fn[A, B] array_indexed_map(
+  element_change : (Int64, A) -> B,
+  array : @immut/array.T[A],
+) -> @immut/array.T[B] {
+  // can maybe be optimized
+  array
+  |> @immut/array.T::iter
+  |> Iter::mapi(fn(index, element) {
+    element_change(Int::to_int64(index), element)
+  })
+  |> @immut/array.T::from_iter
+}
+
+///|
+pub fn[A, State] array_foldl(
+  reduce : (A, State) -> State,
+  initial_state : State,
+  array : @immut/array.T[A],
+) -> State {
+  @immut/array.T::fold(array, init=initial_state, fn(so_far, element) {
+    reduce(element, so_far)
+  })
+}
+
+///|
+pub fn[A, State] array_foldr(
+  reduce : (A, State) -> State,
+  initial_state : State,
+  array : @immut/array.T[A],
+) -> State {
+  @immut/array.T::rev_fold(array, init=initial_state, fn(so_far, element) {
+    reduce(element, so_far)
+  })
+}
+
+///|
+pub fnalias @immut/array.T::concat as array_append
+
+///|
+pub fn[A] array_to_list(array : @immut/array.T[A]) -> @list.List[A] {
+  @list.from_iter(@immut/array.T::iter(array))
+}
+
+///|
+pub fn[A] array_to_indexed_list(
+  array : @immut/array.T[A],
+) -> @list.List[(Int64, A)] {
+  array
+  |> @immut/array.T::iter
+  |> Iter::mapi(fn(index, element) { (Int::to_int64(index), element) })
+  |> @list.from_iter
 }
 
 ///|
