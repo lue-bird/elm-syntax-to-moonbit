@@ -2398,9 +2398,7 @@ pub fn json_encode_encode(indent_size : Int64, json : Json) -> String {
 pub let json_encode_null : Json = Json::null()
 
 ///|
-pub fn json_encode_bool(bool : Bool) -> Json {
-  Json::boolean(bool)
-}
+pub fnalias Json::boolean as json_encode_bool
 
 ///|
 pub fn json_encode_int(int : Int64) -> Json {
@@ -2408,13 +2406,11 @@ pub fn json_encode_int(int : Int64) -> Json {
 }
 
 ///|
-pub fn json_encode_double(float : Double) -> Json {
-  Json::number(float)
-}
+pub fnalias Json::number as json_encode_double
 
 ///|
-pub fn json_encode_string(string : String) -> Json {
-  Json::string(string)
+pub fn json_encode_string(string : StringString) -> Json {
+  Json::string(string_string_to_string(string))
 }
 
 ///|
@@ -2478,6 +2474,11 @@ pub(all) enum JsonDecodeError {
   Index(Int64, JsonDecodeError)
   OneOf(@list.List[JsonDecodeError])
   Failure(StringString, Json)
+} derive(Eq)
+
+///|
+impl Show for JsonDecodeError with output(self, logger) {
+  logger.write_string(errorToStringHelp(self, @list.empty()))
 }
 
 ///|
@@ -2662,10 +2663,10 @@ pub let json_decode_int : JsonDecodeDecoder[Int64] = JsonDecodeDecoder::{
 }
 
 ///|
-pub let json_decode_string : JsonDecodeDecoder[String] = JsonDecodeDecoder::{
+pub let json_decode_string : JsonDecodeDecoder[StringString] = JsonDecodeDecoder::{
   decode: fn(json) {
     match Json::as_string(json) {
-      Option::Some(string) => Result::Ok(string)
+      Option::Some(string) => Result::Ok(StringString::One(string))
       Option::None =>
         Result::Err(
           JsonDecodeError::Failure(
@@ -2960,9 +2961,10 @@ pub fn[A] json_decode_index(
 
 ///|
 pub fn[A] json_decode_field(
-  field_name : String,
+  field_name : StringString,
   field_value_decoder : JsonDecodeDecoder[A],
 ) -> JsonDecodeDecoder[A] {
+  let field_name_as_string : String = string_string_to_string(field_name)
   JsonDecodeDecoder::{
     decode: fn(json) {
       match json.as_object() {
@@ -2974,19 +2976,19 @@ pub fn[A] json_decode_field(
             ),
           )
         Option::Some(json_fields) =>
-          match Map::get(json_fields, field_name) {
+          match Map::get(json_fields, field_name_as_string) {
             Option::None =>
               Result::Err(
                 JsonDecodeError::Failure(
                   StringString::One(
-                    "Expecting an OBJECT with field \{json_field_description(field_name)}",
+                    "Expecting an OBJECT with field \{json_field_description(field_name_as_string)}",
                   ),
                   json,
                 ),
               )
             Option::Some(field_value_json) =>
               Result::map_err((field_value_decoder.decode)(field_value_json), element_decode_error => JsonDecodeError::Field(
-                StringString::One(field_name),
+                StringString::One(field_name_as_string),
                 element_decode_error,
               ))
           }
@@ -3014,7 +3016,7 @@ fn json_field_description(field_name : String) -> String {
 
 ///|
 pub fn[A] json_decode_at(
-  field_name_path : @list.List[String],
+  field_name_path : @list.List[StringString],
   inner_field_value_decoder : JsonDecodeDecoder[A],
 ) -> JsonDecodeDecoder[A] {
   // can be optimized (flattened to single decode step)

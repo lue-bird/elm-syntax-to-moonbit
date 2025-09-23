@@ -2519,7 +2519,7 @@ typeConstructReferenceToCoreMoonbit reference =
             -- "Value" is the only possible reference.name
             Just
                 { qualification = []
-                , name = "JsonValue"
+                , name = "Json"
                 , isShow = True
                 , isEq = True
                 }
@@ -2529,7 +2529,7 @@ typeConstructReferenceToCoreMoonbit reference =
                 "Value" ->
                     Just
                         { qualification = []
-                        , name = "JsonValue"
+                        , name = "Json"
                         , isShow = True
                         , isEq = True
                         }
@@ -8758,7 +8758,7 @@ expression context expressionTypedNode =
                                 moonbitExpressionClosureReduced
                                     { parameters =
                                         [ { binding = Just "generated_data"
-                                          , type_ = Just moonbitTypeJsonValue
+                                          , type_ = Just moonbitTypeJson
                                           }
                                         ]
                                     , result =
@@ -9566,13 +9566,13 @@ moonbitExpressionReferenceVariantStringStringOne =
         }
 
 
-moonbitTypeJsonValue : MoonbitType
-moonbitTypeJsonValue =
+moonbitTypeJson : MoonbitType
+moonbitTypeJson =
     MoonbitTypeConstruct
         { qualification = []
         , isShow = True
         , isEq = True
-        , name = "JsonValue"
+        , name = "Json"
         , arguments = []
         }
 
@@ -31803,5 +31803,714 @@ pub fn time_to_year(zone : TimeZone, time : TimePosix) -> Int64 {
 ///|
 pub fn time_utc() -> TimeZone {
   TimeZone::Zone(0L, @list.empty())
+}
+
+///|
+pub fn json_encode_encode(indent_size : Int64, json : Json) -> String {
+  Json::stringify(json, indent=Int64::to_int(indent_size))
+}
+
+///|
+pub let json_encode_null : Json = Json::null()
+
+///|
+pub fnalias Json::boolean as json_encode_bool
+
+///|
+pub fn json_encode_int(int : Int64) -> Json {
+  Json::number(Int64::to_double(int), repr=Int64::to_string(int))
+}
+
+///|
+pub fnalias Json::number as json_encode_double
+
+///|
+pub fn json_encode_string(string : StringString) -> Json {
+  Json::string(string_string_to_string(string))
+}
+
+///|
+pub fn[A] json_encode_array(
+  element_to_json : (A) -> Json,
+  array : @immut/array.T[A],
+) -> Json {
+  Json::array(
+    array
+    |> @immut/array.T::iter()
+    |> Iter::map(element_to_json)
+    |> Array::from_iter,
+  )
+}
+
+///|
+pub fn[A] json_encode_list(
+  element_to_json : (A) -> Json,
+  list : @list.List[A],
+) -> Json {
+  Json::array(
+    list |> @list.List::iter() |> Iter::map(element_to_json) |> Array::from_iter,
+  )
+}
+
+///|
+pub fn[A] json_encode_set(
+  element_to_json : (A) -> Json,
+  set : @immut/sorted_set.SortedSet[A],
+) -> Json {
+  Json::array(
+    set
+    |> @immut/sorted_set.SortedSet::iter()
+    |> Iter::map(element_to_json)
+    |> Array::from_iter,
+  )
+}
+
+///|
+pub fn[K, V] json_encode_dict(
+  key_to_string : (K) -> String,
+  value_to_json : (V) -> Json,
+  dict : @immut/sorted_map.SortedMap[K, V],
+) -> Json {
+  Json::object(
+    dict
+    |> @immut/sorted_map.SortedMap::iter()
+    |> Iter::map(fn(entry) { (key_to_string(entry.0), value_to_json(entry.1)) })
+    |> Map::from_iter,
+  )
+}
+
+///|
+pub fn json_encode_object(fields : @list.List[(String, Json)]) -> Json {
+  Json::object(fields |> @list.List::iter() |> Map::from_iter)
+}
+
+///|
+pub(all) enum JsonDecodeError {
+  Field(StringString, JsonDecodeError)
+  Index(Int64, JsonDecodeError)
+  OneOf(@list.List[JsonDecodeError])
+  Failure(StringString, Json)
+} derive(Eq)
+
+///|
+impl Show for JsonDecodeError with output(self, logger) {
+  logger.write_string(errorToStringHelp(self, @list.empty()))
+}
+
+///|
+pub(all) struct JsonDecodeDecoder[A] {
+  decode : (Json) -> Result[A, JsonDecodeError]
+}
+
+///|
+pub fn json_decode_error_to_string(
+  json_decode_error : JsonDecodeError,
+) -> StringString {
+  StringString::One(errorToStringHelp(json_decode_error, @list.empty()))
+}
+
+///|
+fn errorToStringHelp(
+  json_decode_error : JsonDecodeError,
+  context : @list.List[String],
+) -> String {
+  // can be optimized
+  match json_decode_error {
+    Field(field_name, err) =>
+      errorToStringHelp(
+        err,
+        @list.List::prepend(
+          context,
+          json_field_description(string_string_to_string(field_name)),
+        ),
+      )
+    Index(i, err) =>
+      errorToStringHelp(err, @list.List::prepend(context, "[\\{i}]"))
+    OneOf(errors) =>
+      match errors {
+        @list.List::Empty =>
+          "Ran into a Json.Decode.oneOf with no possibilities" +
+          (if @list.List::is_empty(context) {
+            "!"
+          } else {
+            " at json" + str_join("", @list.List::rev(context))
+          })
+        @list.List::More(err, tail=@list.List::Empty) =>
+          errorToStringHelp(err, context)
+        _ =>
+          str_join(
+            "\\n\\n",
+            @list.List::prepend(
+              list_indexed_map(errorOneOf, errors),
+              (if @list.List::is_empty(context) {
+                "Json.Decode.oneOf"
+              } else {
+                "The Json.Decode.oneOf at json" +
+                str_join("", @list.List::rev(context))
+              }) +
+              " failed in the following " +
+              Int::to_string(@list.List::length(errors)) +
+              " ways:",
+            ),
+          )
+      }
+    Failure(msg, json) =>
+      (if @list.List::is_empty(context) {
+        "Problem with the given value:\\n\\n"
+      } else {
+        "Problem with the value at json" +
+        str_join("", @list.List::rev(context)) +
+        ":\\n\\n    "
+      }) +
+      str_indent_by_4(json_encode_encode(4, json)) +
+      "\\n\\n" +
+      string_string_to_string(msg)
+  }
+}
+
+///|
+fn errorOneOf(index : Int64, error : JsonDecodeError) -> String {
+  "\\n\\n(\\{index + 1}) " +
+  str_indent_by_4(errorToStringHelp(error, @list.empty()))
+}
+
+///|
+fn str_indent_by_4(string : String) -> String {
+  // can be optimized
+  string
+  |> String::split("\\n")
+  |> Iter::map(fn(line) { "    \\{line}" })
+  |> @list.from_iter
+  |> str_join("\\n", _)
+}
+
+///|
+pub fn str_join(in_between : String, strings : @list.List[String]) -> String {
+  match strings {
+    @list.List::Empty => ""
+    @list.List::More(head_string, tail=tail_strings) =>
+      @list.List::fold(tail_strings, init=head_string, fn(so_far, element) {
+        so_far + in_between + element
+      })
+  }
+}
+
+///|
+pub fn[A] json_decode_decode_value(
+  decoder : JsonDecodeDecoder[A],
+  json : Json,
+) -> ResultResult[JsonDecodeError, A] {
+  (decoder.decode)(json)
+}
+
+///|
+pub fn[A] json_decode_decode_string(
+  decoder : JsonDecodeDecoder[A],
+  json_string : String,
+) -> ResultResult[JsonDecodeError, A] {
+  (decoder.decode)(@json.parse(json_string)) catch {
+    json_parse_error =>
+      Result::Err(
+        JsonDecodeError::Failure(
+          StringString::One(@json.ParseError::to_string(json_parse_error)),
+          Json::string(json_string),
+        ),
+      )
+  }
+}
+
+///|
+pub let json_decode_value : JsonDecodeDecoder[Json] = JsonDecodeDecoder::{
+  decode: fn(json) { Result::Ok(json) },
+}
+
+///|
+pub let json_decode_bool : JsonDecodeDecoder[Bool] = JsonDecodeDecoder::{
+  decode: fn(json) {
+    match Json::as_bool(json) {
+      Option::Some(bool) => Result::Ok(bool)
+      Option::None =>
+        Result::Err(
+          JsonDecodeError::Failure(StringString::One("Expecting a BOOL"), json),
+        )
+    }
+  },
+}
+
+///|
+pub let json_decode_float : JsonDecodeDecoder[Double] = JsonDecodeDecoder::{
+  decode: fn(json) {
+    match Json::as_number(json) {
+      Option::Some(double) => Result::Ok(double)
+      Option::None =>
+        Result::Err(
+          JsonDecodeError::Failure(
+            StringString::One("Expecting a NUMBER"),
+            json,
+          ),
+        )
+    }
+  },
+}
+
+///|
+pub let json_decode_int : JsonDecodeDecoder[Int64] = JsonDecodeDecoder::{
+  decode: fn(json) {
+    match Json::as_number(json) {
+      Option::Some(double) => {
+        let as_int64 = Double::to_int64(double)
+        if double == Int64::to_double(as_int64) {
+          Result::Ok(as_int64)
+        } else {
+          Result::Err(
+            JsonDecodeError::Failure(
+              StringString::One("Expecting an INT"),
+              json,
+            ),
+          )
+        }
+      }
+      Option::None =>
+        Result::Err(
+          JsonDecodeError::Failure(StringString::One("Expecting an INT"), json),
+        )
+    }
+  },
+}
+
+///|
+pub let json_decode_string : JsonDecodeDecoder[StringString] = JsonDecodeDecoder::{
+  decode: fn(json) {
+    match Json::as_string(json) {
+      Option::Some(string) => Result::Ok(StringString::One(string))
+      Option::None =>
+        Result::Err(
+          JsonDecodeError::Failure(
+            StringString::One("Expecting a STRING"),
+            json,
+          ),
+        )
+    }
+  },
+}
+
+///|
+pub fn[A] json_decode_null(value_on_null : A) -> JsonDecodeDecoder[A] {
+  JsonDecodeDecoder::{
+    decode: fn(json) {
+      match Json::as_null(json) {
+        Option::Some(_) => Result::Ok(value_on_null)
+        Option::None =>
+          Result::Err(
+            JsonDecodeError::Failure(StringString::One("Expecting NULL"), json),
+          )
+      }
+    },
+  }
+}
+
+///|
+pub fn[A] json_decode_nullable(
+  on_not_null_decoder : JsonDecodeDecoder[A],
+) -> JsonDecodeDecoder[A?] {
+  JsonDecodeDecoder::{
+    decode: fn(json) {
+      match Json::as_null(json) {
+        Option::Some(_) => Result::Ok(Option::None)
+        Option::None =>
+          match (on_not_null_decoder.decode)(json) {
+            Result::Ok(decoded_on_not_null) =>
+              Result::Ok(Option::Some(decoded_on_not_null))
+            Result::Err(on_not_null_error) =>
+              Result::Err(
+                JsonDecodeError::OneOf(
+                  @list.of([
+                    JsonDecodeError::Failure(
+                      StringString::One("Expecting NULL"),
+                      json,
+                    ),
+                    on_not_null_error,
+                  ]),
+                ),
+              )
+          }
+      }
+    },
+  }
+}
+
+///|
+pub fn[A] json_decode_list(
+  element_decoder : JsonDecodeDecoder[A],
+) -> JsonDecodeDecoder[@list.List[A]] {
+  JsonDecodeDecoder::{
+    decode: fn(json) {
+      match json.as_array() {
+        Option::None =>
+          Result::Err(
+            JsonDecodeError::Failure(
+              StringString::One("Expecting an ARRAY"),
+              json,
+            ),
+          )
+        Option::Some(array) => {
+          let decoded : Array[A] = Array::new()
+          for element_index, element_json in array {
+            match (element_decoder.decode)(element_json) {
+              Result::Ok(decoded_element) =>
+                Array::push(decoded, decoded_element)
+              Result::Err(element_decode_error) =>
+                return Result::Err(
+                  JsonDecodeError::Index(
+                    Int::to_int64(element_index),
+                    element_decode_error,
+                  ),
+                )
+            }
+          } else {
+            Result::Ok(@list.from_array(decoded))
+          }
+        }
+      }
+    },
+  }
+}
+
+///|
+pub fn[A] json_decode_array(
+  element_decoder : JsonDecodeDecoder[A],
+) -> JsonDecodeDecoder[@immut/array.T[A]] {
+  JsonDecodeDecoder::{
+    decode: fn(json) {
+      match json.as_array() {
+        Option::None =>
+          Result::Err(
+            JsonDecodeError::Failure(
+              StringString::One("Expecting an ARRAY"),
+              json,
+            ),
+          )
+        Option::Some(array) => {
+          let mut decoded : @immut/array.T[A] = @immut/array.new()
+          for element_index, element_json in array {
+            match (element_decoder.decode)(element_json) {
+              Result::Ok(decoded_element) =>
+                decoded = @immut/array.T::push(decoded, decoded_element)
+              Result::Err(element_decode_error) =>
+                return Result::Err(
+                  JsonDecodeError::Index(
+                    Int::to_int64(element_index),
+                    element_decode_error,
+                  ),
+                )
+            }
+          } else {
+            Result::Ok(decoded)
+          }
+        }
+      }
+    },
+  }
+}
+
+///|
+pub fn[A, Combined] json_decode_one_or_more(
+  combine_head_tail : (A, @list.List[A]) -> Combined,
+  element_decoder : JsonDecodeDecoder[A],
+) -> JsonDecodeDecoder[Combined] {
+  JsonDecodeDecoder::{
+    decode: fn(json) {
+      match json.as_array() {
+        Option::None =>
+          Result::Err(
+            JsonDecodeError::Failure(
+              StringString::One("Expecting an ARRAY"),
+              json,
+            ),
+          )
+        Option::Some(array) => {
+          let decoded : Array[A] = Array::new()
+          for element_index, element_json in array {
+            match (element_decoder.decode)(element_json) {
+              Result::Ok(decoded_element) =>
+                Array::push(decoded, decoded_element)
+              Result::Err(element_decode_error) =>
+                return Result::Err(
+                  JsonDecodeError::Index(
+                    Int::to_int64(element_index),
+                    element_decode_error,
+                  ),
+                )
+            }
+          } else {
+            match @list.from_array(decoded) {
+              @list.List::Empty =>
+                Result::Err(
+                  JsonDecodeError::Failure(
+                    StringString::One(
+                      "Expecting an ARRAY with at least ONE element",
+                    ),
+                    json,
+                  ),
+                )
+              @list.List::More(decoded_head, tail=decoded_tail) =>
+                Result::Ok(combine_head_tail(decoded_head, decoded_tail))
+            }
+          }
+        }
+      }
+    },
+  }
+}
+
+///|
+pub fn[V] json_decode_dict(
+  element_decoder : JsonDecodeDecoder[V],
+) -> JsonDecodeDecoder[@immut/sorted_map.SortedMap[String, V]] {
+  JsonDecodeDecoder::{
+    decode: fn(json) {
+      match json.as_object() {
+        Option::None =>
+          Result::Err(
+            JsonDecodeError::Failure(
+              StringString::One("Expecting an OBJECT"),
+              json,
+            ),
+          )
+        Option::Some(json_fields) => {
+          let mut decoded : @immut/sorted_map.SortedMap[String, V] = @immut/sorted_map.new()
+          for key, element_json in json_fields {
+            match (element_decoder.decode)(element_json) {
+              Result::Ok(decoded_value) =>
+                decoded = @immut/sorted_map.SortedMap::add(
+                  decoded, key, decoded_value,
+                )
+              Result::Err(element_decode_error) =>
+                return Result::Err(
+                  JsonDecodeError::Field(
+                    StringString::One(key),
+                    element_decode_error,
+                  ),
+                )
+            }
+          } else {
+            Result::Ok(decoded)
+          }
+        }
+      }
+    },
+  }
+}
+
+///|
+pub fn[V] json_decode_key_value_pairs(
+  element_decoder : JsonDecodeDecoder[V],
+) -> JsonDecodeDecoder[@list.List[(String, V)]] {
+  JsonDecodeDecoder::{
+    decode: fn(json) {
+      match json.as_object() {
+        Option::None =>
+          Result::Err(
+            JsonDecodeError::Failure(
+              StringString::One("Expecting an OBJECT"),
+              json,
+            ),
+          )
+        Option::Some(json_fields) => {
+          let decoded : Array[(String, V)] = Array::new()
+          for key, element_json in json_fields {
+            match (element_decoder.decode)(element_json) {
+              Result::Ok(decoded_value) =>
+                Array::push(decoded, (key, decoded_value))
+              Result::Err(element_decode_error) =>
+                return Result::Err(
+                  JsonDecodeError::Field(
+                    StringString::One(key),
+                    element_decode_error,
+                  ),
+                )
+            }
+          } else {
+            Result::Ok(@list.from_array(decoded))
+          }
+        }
+      }
+    },
+  }
+}
+
+///|
+pub fn[A] json_decode_index(
+  index : Int64,
+  field_value_decoder : JsonDecodeDecoder[A],
+) -> JsonDecodeDecoder[A] {
+  JsonDecodeDecoder::{
+    decode: fn(json) {
+      match json.as_array() {
+        Option::None =>
+          Result::Err(
+            JsonDecodeError::Failure(
+              StringString::One("Expecting an ARRAY"),
+              json,
+            ),
+          )
+        Option::Some(json_array) =>
+          match Array::get(json_array, Int64::to_int(index)) {
+            Option::None =>
+              Result::Err(
+                JsonDecodeError::Failure(
+                  StringString::One(
+                    "Expecting an ARRAY with an element at index \\{index}",
+                  ),
+                  json,
+                ),
+              )
+            Option::Some(field_value_json) =>
+              Result::map_err((field_value_decoder.decode)(field_value_json), element_decode_error => JsonDecodeError::Index(
+                index, element_decode_error,
+              ))
+          }
+      }
+    },
+  }
+}
+
+///|
+pub fn[A] json_decode_field(
+  field_name : StringString,
+  field_value_decoder : JsonDecodeDecoder[A],
+) -> JsonDecodeDecoder[A] {
+  let field_name_as_string : String = string_string_to_string(field_name)
+  JsonDecodeDecoder::{
+    decode: fn(json) {
+      match json.as_object() {
+        Option::None =>
+          Result::Err(
+            JsonDecodeError::Failure(
+              StringString::One("Expecting an OBJECT"),
+              json,
+            ),
+          )
+        Option::Some(json_fields) =>
+          match Map::get(json_fields, field_name_as_string) {
+            Option::None =>
+              Result::Err(
+                JsonDecodeError::Failure(
+                  StringString::One(
+                    "Expecting an OBJECT with field \\{json_field_description(field_name_as_string)}",
+                  ),
+                  json,
+                ),
+              )
+            Option::Some(field_value_json) =>
+              Result::map_err((field_value_decoder.decode)(field_value_json), element_decode_error => JsonDecodeError::Field(
+                StringString::One(field_name_as_string),
+                element_decode_error,
+              ))
+          }
+      }
+    },
+  }
+}
+
+///|
+fn json_field_description(field_name : String) -> String {
+  if (field_name
+    |> String::iter()
+    |> Iter::take(1)
+    |> Iter::all(Char::is_ascii_alphabetic)) &&
+    (field_name
+    |> String::iter()
+    |> Iter::drop(1)
+    |> Iter::all(tail_char => Char::is_ascii_alphabetic(tail_char) ||
+      Char::is_ascii_digit(tail_char))) {
+    "." + field_name
+  } else {
+    "['\\{field_name}'']"
+  }
+}
+
+///|
+pub fn[A] json_decode_at(
+  field_name_path : @list.List[StringString],
+  inner_field_value_decoder : JsonDecodeDecoder[A],
+) -> JsonDecodeDecoder[A] {
+  // can be optimized (flattened to single decode step)
+  list_foldr(json_decode_field, inner_field_value_decoder, field_name_path)
+}
+
+///|
+pub fn[A] json_decode_succeed(result : A) -> JsonDecodeDecoder[A] {
+  JsonDecodeDecoder::{ decode: fn(_json) { Result::Ok(result) } }
+}
+
+///|
+pub fn[A] json_decode_fail(message : String) -> JsonDecodeDecoder[A] {
+  JsonDecodeDecoder::{
+    decode: fn(json) {
+      Result::Err(JsonDecodeError::Failure(StringString::One(message), json))
+    },
+  }
+}
+
+///|
+pub fn[A] json_decode_lazy(
+  construct_decoder : (Unit) -> JsonDecodeDecoder[A],
+) -> JsonDecodeDecoder[A] {
+  JsonDecodeDecoder::{
+    decode: fn(json) { (construct_decoder(()).decode)(json) },
+  }
+}
+
+///|
+pub fn[A, B] json_decode_and_then(
+  result_to_followup_decoder : (A) -> JsonDecodeDecoder[B],
+  decoder : JsonDecodeDecoder[A],
+) -> JsonDecodeDecoder[B] {
+  JsonDecodeDecoder::{
+    decode: fn(json) {
+      (decoder.decode)(json)
+      |> Result::bind(fn(result) {
+        (result_to_followup_decoder(result).decode)(json)
+      })
+    },
+  }
+}
+
+///|
+pub fn[A] json_decode_maybe(
+  decoder : JsonDecodeDecoder[A],
+) -> JsonDecodeDecoder[A?] {
+  JsonDecodeDecoder::{
+    decode: fn(json) {
+      Result::Ok(
+        match (decoder.decode)(json) {
+          Result::Err(_) => Option::None
+          Result::Ok(decoded) => Option::Some(decoded)
+        },
+      )
+    },
+  }
+}
+
+///|
+pub fn[A] json_decode_one_of(
+  options : @list.List[JsonDecodeDecoder[A]],
+) -> JsonDecodeDecoder[A] {
+  JsonDecodeDecoder::{
+    decode: json => {
+      let option_decode_errors : Array[JsonDecodeError] = Array::new()
+      for next_option_decoder in options {
+        match (next_option_decoder.decode)(json) {
+          Result::Ok(value) => return Result::Ok(value)
+          Result::Err(option_decode_error) =>
+            option_decode_errors.push(option_decode_error)
+        }
+      }
+      Result::Err(
+        JsonDecodeError::OneOf(@list.from_array(option_decode_errors)),
+      )
+    },
+  }
 }
 """
