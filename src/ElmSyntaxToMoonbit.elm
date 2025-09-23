@@ -9632,7 +9632,7 @@ moonbitExpressionReferenceDeclaredFnAppliedLazilyOrCurriedIfNecessary context mo
         let
             resultMoonbitType : MoonbitType
             resultMoonbitType =
-                inferredTypeExpandedAsFunction.output
+                moonbitReference.originDeclarationTypeWithExpandedAliases
                     |> type_
                         { typeAliasesInModule = typeAliasesInModule
                         , moonbitEnumTypes = context.moonbitEnumTypes
