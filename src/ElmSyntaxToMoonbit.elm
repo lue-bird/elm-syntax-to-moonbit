@@ -7358,7 +7358,7 @@ moonbitTypeUnnestFnPrependReverseInputs reverseInputsToPrepend moonbitType =
                 [] ->
                     moonbitType
 
-                _ ->
+                _ :: _ ->
                     MoonbitTypeFunction
                         { input = reverseInputsToPrepend |> List.reverse
                         , output = moonbitType
@@ -9616,12 +9616,6 @@ moonbitExpressionReferenceDeclaredFnAppliedLazilyOrCurriedIfNecessary context mo
                 |> .inputs
                 |> List.length
 
-        inferredTypeExpandedAsFunction : { inputs : List ElmSyntaxTypeInfer.Type, output : ElmSyntaxTypeInfer.Type }
-        inferredTypeExpandedAsFunction =
-            moonbitReference.inferredType
-                |> inferredTypeExpandInnerAliases typeAliasesInModule
-                |> inferredTypeExpandFunction
-
         typeAliasesInModule : String -> Maybe (FastDict.Dict String { parameters : List String, recordFieldOrder : Maybe (List String), type_ : ElmSyntaxTypeInfer.Type })
         typeAliasesInModule moduleNameToAccess =
             context.moduleInfo
@@ -9655,6 +9649,13 @@ moonbitExpressionReferenceDeclaredFnAppliedLazilyOrCurriedIfNecessary context mo
                 }
 
     else
+        let
+            inferredTypeExpandedAsFunction : { inputs : List ElmSyntaxTypeInfer.Type, output : ElmSyntaxTypeInfer.Type }
+            inferredTypeExpandedAsFunction =
+                moonbitReference.inferredType
+                    |> inferredTypeExpandInnerAliases typeAliasesInModule
+                    |> inferredTypeExpandFunction
+        in
         inferredTypeExpandedAsFunction.inputs
             |> List.take parameterCount
             |> List.indexedMap Tuple.pair
@@ -15897,22 +15898,20 @@ moonbitDeclarationsToModuleString moonbitDeclarations =
                 |> -- TODO hacky way to make stil4m/elm-syntax & miniBill/elm-fast-dict & elm-syntax-type-infer
                    -- compile because we have no way to find out which type variable is equatable
                    String.replace
-                    "list_extra_unique_help<'a, A: Clone + 'a>"
-                    "list_extra_unique_help<'a, A: Clone + Eq + 'a>"
+                    "[A] list_extra_unique_help"
+                    "[A: Eq] list_extra_unique_help"
                 |> String.replace
-                    "list_extra_unique<'a, A: Clone + 'a>"
-                    "list_extra_unique<'a, A: Clone + Eq + 'a>"
+                    "[A] list_extra_unique"
+                    "[A: Eq] list_extra_unique"
                 |> String.replace
-                    "dict_by_type_variable_from_context_equals<'a, V: Clone + 'a>"
-                    "dict_by_type_variable_from_context_equals<'a, V: Clone + Eq + 'a>"
+                    "[V] dict_by_type_variable_from_context_equals"
+                    "[V: Eq] dict_by_type_variable_from_context_equals"
                 |> String.replace
-                    "dict_by_type_variable_from_context_equals_help<'a, V: Clone + 'a>"
-                    "dict_by_type_variable_from_context_equals_help<'a, V: Clone + Eq + 'a>"
+                    "[V] dict_by_type_variable_from_context_equals_help"
+                    "[V: Eq] dict_by_type_variable_from_context_equals_help"
                 |> String.replace
-                    """pub fn fast_dict_equals<'a, Comparable: Clone + Compare + 'a, V: Clone + 'a>(generated_allocator: &'a bumpalo::Bump, InternalDict::Dict(lsz, l_root): InternalDict<'a, Comparable, V>, InternalDict::Dict(rsz, r_root): InternalDict<'a, Comparable, V>) -> bool {
-    fn go<'a, Comparable1: Clone + Compare + 'a, V1: Clone + 'a>"""
-                    """pub fn fast_dict_equals<'a, Comparable: Clone + Compare + 'a, V: Clone + Eq + 'a>(generated_allocator: &'a bumpalo::Bump, InternalDict::Dict(lsz, l_root): InternalDict<'a, Comparable, V>, InternalDict::Dict(rsz, r_root): InternalDict<'a, Comparable, V>) -> bool {
-    fn go<'a, Comparable1: Clone + Compare + 'a, V1: Clone + Eq + 'a>"""
+                    "[Comparable: Compare, V] fast_dict_equals"
+                    "[Comparable: Compare, V: Eq] fast_dict_equals"
            )
         ++ "\n"
 
