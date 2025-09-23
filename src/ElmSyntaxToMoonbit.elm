@@ -1110,7 +1110,7 @@ typeNotVariable context inferredTypeNotVariable =
                 }
 
         ElmSyntaxTypeInfer.TypeFunction typeFunction ->
-            moonbitTypeDynFn
+            MoonbitTypeFunction
                 { input = [ typeFunction.input |> type_ context ]
                 , output = typeFunction.output |> type_ context
                 }
@@ -1137,14 +1137,6 @@ typeNotVariable context inferredTypeNotVariable =
                             )
                             FastDict.empty
                 }
-
-
-moonbitTypeDynFn : { input : List MoonbitType, output : MoonbitType } -> MoonbitType
-moonbitTypeDynFn typeFunction =
-    MoonbitTypeFunction
-        { input = typeFunction.input
-        , output = typeFunction.output
-        }
 
 
 printMoonbitTypeNotParenthesized : MoonbitType -> Print
@@ -8424,7 +8416,7 @@ expression context expressionTypedNode =
                                             , result = resultSoFar.expression
                                             }
                                     , type_ =
-                                        moonbitTypeDynFn
+                                        MoonbitTypeFunction
                                             { input = [ parameter.type_ ]
                                             , output = resultSoFar.type_
                                             }
@@ -8538,7 +8530,7 @@ expression context expressionTypedNode =
                                             , result = resultSoFar.expression
                                             }
                                     , type_ =
-                                        moonbitTypeDynFn
+                                        MoonbitTypeFunction
                                             { input = [ parameterType ]
                                             , output = resultSoFar.type_
                                             }
@@ -8717,7 +8709,7 @@ expression context expressionTypedNode =
                                                         , result = resultSoFar.expression
                                                         }
                                                 , type_ =
-                                                    moonbitTypeDynFn
+                                                    MoonbitTypeFunction
                                                         { input = [ parameter.type_ ]
                                                         , output = resultSoFar.type_
                                                         }
@@ -9321,7 +9313,7 @@ expression context expressionTypedNode =
                                         , result = resultSoFar.expression
                                         }
                                 , type_ =
-                                    moonbitTypeDynFn
+                                    MoonbitTypeFunction
                                         { input = [ parameter.type_ ]
                                         , output = resultSoFar.type_
                                         }
@@ -9636,21 +9628,47 @@ moonbitExpressionReferenceDeclaredFnAppliedLazilyOrCurriedIfNecessary context mo
                 |> FastDict.get moduleNameToAccess
                 |> Maybe.map .typeAliases
     in
-    inferredTypeExpandedAsFunction.inputs
-        |> List.take parameterCount
-        |> List.indexedMap Tuple.pair
-        |> List.foldr
-            (\( parameterIndex, parameterInferredType ) resultSoFar ->
-                let
-                    parameterType : MoonbitType
-                    parameterType =
-                        parameterInferredType
-                            |> type_
-                                { typeAliasesInModule = typeAliasesInModule
-                                , moonbitEnumTypes = context.moonbitEnumTypes
-                                }
-                in
-                { expression =
+    if parameterCount == 0 then
+        let
+            resultMoonbitType : MoonbitType
+            resultMoonbitType =
+                inferredTypeExpandedAsFunction.output
+                    |> type_
+                        { typeAliasesInModule = typeAliasesInModule
+                        , moonbitEnumTypes = context.moonbitEnumTypes
+                        }
+        in
+        if resultMoonbitType |> moonbitTypeIsConcrete then
+            MoonbitExpressionReference
+                { qualification = moonbitReference.qualification
+                , name = moonbitReference.name
+                }
+
+        else
+            MoonbitExpressionCall
+                { called =
+                    MoonbitExpressionReference
+                        { qualification = moonbitReference.qualification
+                        , name = moonbitReference.name
+                        }
+                , arguments = []
+                }
+
+    else
+        inferredTypeExpandedAsFunction.inputs
+            |> List.take parameterCount
+            |> List.indexedMap Tuple.pair
+            |> List.foldr
+                (\( parameterIndex, parameterInferredType ) resultSoFar ->
+                    let
+                        parameterType : MoonbitType
+                        parameterType =
+                            parameterInferredType
+                                |> type_
+                                    { typeAliasesInModule = typeAliasesInModule
+                                    , moonbitEnumTypes = context.moonbitEnumTypes
+                                    }
+                    in
                     moonbitExpressionClosureReduced
                         { parameters =
                             [ { binding =
@@ -9662,51 +9680,29 @@ moonbitExpressionReferenceDeclaredFnAppliedLazilyOrCurriedIfNecessary context mo
                               , type_ = Just parameterType
                               }
                             ]
-                        , result = resultSoFar.expression
+                        , result = resultSoFar
                         }
-                , type_ =
-                    moonbitTypeDynFn
-                        { input = [ parameterType ]
-                        , output = resultSoFar.type_
-                        }
-                }
-            )
-            { type_ =
-                inferredTypeExpandedAsFunction.output
-                    |> type_
-                        { typeAliasesInModule = typeAliasesInModule
-                        , moonbitEnumTypes = context.moonbitEnumTypes
-                        }
-            , expression =
-                case parameterCount of
-                    0 ->
+                )
+                (MoonbitExpressionCall
+                    { called =
                         MoonbitExpressionReference
                             { qualification = moonbitReference.qualification
                             , name = moonbitReference.name
                             }
-
-                    parameterCountAtLeast1 ->
-                        MoonbitExpressionCall
-                            { called =
-                                MoonbitExpressionReference
-                                    { qualification = moonbitReference.qualification
-                                    , name = moonbitReference.name
-                                    }
-                            , arguments =
-                                List.range 0 (parameterCountAtLeast1 - 1)
-                                    |> List.map
-                                        (\parameterIndex ->
-                                            MoonbitExpressionReference
-                                                { qualification = []
-                                                , name =
-                                                    generatedParameterNameForIndexAtPath
-                                                        parameterIndex
-                                                        context.path
-                                                }
-                                        )
-                            }
-            }
-        |> .expression
+                    , arguments =
+                        List.range 0 (parameterCount - 1)
+                            |> List.map
+                                (\parameterIndex ->
+                                    MoonbitExpressionReference
+                                        { qualification = []
+                                        , name =
+                                            generatedParameterNameForIndexAtPath
+                                                parameterIndex
+                                                context.path
+                                        }
+                                )
+                    }
+                )
 
 
 generatedParameterNameForIndexAtPath : Int -> List String -> String
