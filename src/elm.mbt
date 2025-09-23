@@ -1772,6 +1772,328 @@ pub fn[A] array_to_indexed_list(
 }
 
 ///|
+pub fnalias @immut/sorted_set.SortedSet::is_empty as set_is_empty
+
+///|
+pub fn[A] set_size(set : @immut/sorted_set.SortedSet[A]) -> Int64 {
+  Int::to_int64(@immut/sorted_set.SortedSet::size(set))
+}
+
+///|
+pub fn[A : Compare] set_member(
+  element_to_remove : A,
+  set : @immut/sorted_set.SortedSet[A],
+) -> Bool {
+  @immut/sorted_set.SortedSet::contains(set, element_to_remove)
+}
+
+///|
+pub fn[A : Compare] set_from_list(
+  list : @list.List[A],
+) -> @immut/sorted_set.SortedSet[A] {
+  @immut/sorted_set.SortedSet::from_iter(@list.List::iter(list))
+}
+
+///|
+pub fn[A] set_to_list(set : @immut/sorted_set.SortedSet[A]) -> @list.List[A] {
+  @list.from_iter(@immut/sorted_set.SortedSet::iter(set))
+}
+
+///|
+pub fn[A : Compare] set_insert(
+  new_element : A,
+  set : @immut/sorted_set.SortedSet[A],
+) -> @immut/sorted_set.SortedSet[A] {
+  @immut/sorted_set.SortedSet::add(set, new_element)
+}
+
+///|
+pub fn[A : Compare] set_remove(
+  element_to_remove : A,
+  set : @immut/sorted_set.SortedSet[A],
+) -> @immut/sorted_set.SortedSet[A] {
+  @immut/sorted_set.SortedSet::remove(set, element_to_remove)
+}
+
+///|
+pub fn[A : Compare] set_filter(
+  keep_element : (A) -> Bool,
+  set : @immut/sorted_set.SortedSet[A],
+) -> @immut/sorted_set.SortedSet[A] {
+  @immut/sorted_set.SortedSet::filter(set, keep_element)
+}
+
+///|
+pub fn[A, B : Compare] set_map(
+  keep_element : (A) -> B,
+  set : @immut/sorted_set.SortedSet[A],
+) -> @immut/sorted_set.SortedSet[B] {
+  set
+  |> @immut/sorted_set.SortedSet::iter
+  |> Iter::map(keep_element)
+  |> @immut/sorted_set.SortedSet::from_iter
+}
+
+///|
+pub fn[A : Compare, State] set_foldl(
+  reduce : (A, State) -> State,
+  initial_state : State,
+  set : @immut/sorted_set.SortedSet[A],
+) -> State {
+  // TODO remove :Compare once https://github.com/moonbitlang/core/pull/2759 is merged
+  @immut/sorted_set.SortedSet::fold(set, init=initial_state, fn(
+    so_far,
+    element,
+  ) {
+    reduce(element, so_far)
+  })
+}
+
+///|
+pub fn[A, State] set_foldr(
+  reduce : (A, State) -> State,
+  initial_state : State,
+  set : @immut/sorted_set.SortedSet[A],
+) -> State {
+  set
+  |> @immut/sorted_set.SortedSet::to_array
+  |> Array::rev_fold(init=initial_state, fn(so_far, element) {
+    reduce(element, so_far)
+  })
+}
+
+///|
+pub fn[A : Compare] set_partition(
+  element_is_first : (A) -> Bool,
+  set : @immut/sorted_set.SortedSet[A],
+) -> (@immut/sorted_set.SortedSet[A], @immut/sorted_set.SortedSet[A]) {
+  (
+    @immut/sorted_set.SortedSet::filter(set, element_is_first),
+    @immut/sorted_set.SortedSet::filter(set, fn(element) {
+      !element_is_first(element)
+    }),
+  )
+}
+
+///|
+pub fnalias @immut/sorted_set.SortedSet::intersection as set_intersect
+
+///|
+pub fnalias @immut/sorted_set.SortedSet::union as set_union
+
+///|
+pub fnalias @immut/sorted_set.SortedSet::difference as set_diff
+
+///|
+pub fnalias @immut/sorted_map.SortedMap::is_empty as dict_is_empty
+
+///|
+pub fn[K, V] dict_size(dict : @immut/sorted_map.SortedMap[K, V]) -> Int64 {
+  Int::to_int64(@immut/sorted_map.SortedMap::size(dict))
+}
+
+///|
+pub fn[K : Compare, V] dict_member(
+  needle : K,
+  dict : @immut/sorted_map.SortedMap[K, V],
+) -> Bool {
+  @immut/sorted_map.SortedMap::contains(dict, needle)
+}
+
+///|
+pub fn[K : Compare, V] dict_get(
+  needle : K,
+  dict : @immut/sorted_map.SortedMap[K, V],
+) -> V? {
+  @immut/sorted_map.SortedMap::get(dict, needle)
+}
+
+///|
+pub fn[K : Compare, V] dict_from_list(
+  list : @list.List[(K, V)],
+) -> @immut/sorted_map.SortedMap[K, V] {
+  @immut/sorted_map.SortedMap::from_iter(@list.List::iter(list))
+}
+
+///|
+pub fn[K : Compare, V] dict_insert(
+  key : K,
+  new_value : V,
+  dict : @immut/sorted_map.SortedMap[K, V],
+) -> @immut/sorted_map.SortedMap[K, V] {
+  @immut/sorted_map.SortedMap::add(dict, key, new_value)
+}
+
+///|
+pub fn[K : Compare, V] dict_update(
+  key : K,
+  change_maybe_value : (V?) -> V?,
+  dict : @immut/sorted_map.SortedMap[K, V],
+) -> @immut/sorted_map.SortedMap[K, V] {
+  match @immut/sorted_map.SortedMap::get(dict, key) {
+    Option::None =>
+      match change_maybe_value(None) {
+        Option::None => dict
+        Option::Some(changed_value) =>
+          @immut/sorted_map.SortedMap::add(dict, key, changed_value)
+      }
+    Option::Some(_) =>
+      match change_maybe_value(None) {
+        Option::None => @immut/sorted_map.SortedMap::remove(dict, key)
+        Option::Some(changed_value) =>
+          @immut/sorted_map.SortedMap::add(dict, key, changed_value)
+      }
+  }
+}
+
+///|
+pub fn[K : Compare, V] dict_remove(
+  keep_entry : K,
+  dict : @immut/sorted_map.SortedMap[K, V],
+) -> @immut/sorted_map.SortedMap[K, V] {
+  @immut/sorted_map.SortedMap::remove(dict, keep_entry)
+}
+
+///|
+pub fn[K : Compare, V] dict_filter(
+  keep_entry : (K, V) -> Bool,
+  dict : @immut/sorted_map.SortedMap[K, V],
+) -> @immut/sorted_map.SortedMap[K, V] {
+  @immut/sorted_map.SortedMap::filter_with_key(dict, keep_entry)
+}
+
+///|
+pub fn[K, VA, VB] dict_map(
+  keep_entry : (K, VA) -> VB,
+  dict : @immut/sorted_map.SortedMap[K, VA],
+) -> @immut/sorted_map.SortedMap[K, VB] {
+  @immut/sorted_map.SortedMap::map_with_key(dict, keep_entry)
+}
+
+///|
+pub fn[K, V] dict_to_list(
+  dict : @immut/sorted_map.SortedMap[K, V],
+) -> @list.List[(K, V)] {
+  @list.from_iter(@immut/sorted_map.SortedMap::iter(dict))
+}
+
+///|
+pub fn[K, V] dict_keys(
+  dict : @immut/sorted_map.SortedMap[K, V],
+) -> @list.List[K] {
+  @list.from_iter(@immut/sorted_map.SortedMap::keys_as_iter(dict))
+}
+
+///|
+pub fn[K, V] dict_values(
+  dict : @immut/sorted_map.SortedMap[K, V],
+) -> @list.List[V] {
+  @list.from_iter(@immut/sorted_map.SortedMap::values(dict))
+}
+
+///|
+pub fn[K, V, State] dict_foldl(
+  reduce : (K, V, State) -> State,
+  initial_state : State,
+  dict : @immut/sorted_map.SortedMap[K, V],
+) -> State {
+  @immut/sorted_map.SortedMap::foldl_with_key(dict, init=initial_state, fn(
+    so_far,
+    k,
+    v,
+  ) {
+    reduce(k, v, so_far)
+  })
+}
+
+///|
+pub fn[K, V, State] dict_foldr(
+  reduce : (K, V, State) -> State,
+  initial_state : State,
+  dict : @immut/sorted_map.SortedMap[K, V],
+) -> State {
+  @immut/sorted_map.SortedMap::foldr_with_key(dict, init=initial_state, fn(
+    so_far,
+    k,
+    v,
+  ) {
+    reduce(k, v, so_far)
+  })
+}
+
+///|
+pub fn[K : Compare, V] dict_union(
+  addition_dict : @immut/sorted_map.SortedMap[K, V],
+  base_dict : @immut/sorted_map.SortedMap[K, V],
+) -> @immut/sorted_map.SortedMap[K, V] {
+  @immut/sorted_map.SortedMap::foldl_with_key(addition_dict, init=base_dict, fn(
+    so_far,
+    k,
+    v,
+  ) {
+    @immut/sorted_map.SortedMap::add(so_far, k, v)
+  })
+}
+
+///|
+pub fn[K : Compare, V] dict_intersect(
+  base_dict : @immut/sorted_map.SortedMap[K, V],
+  dict_with_keys_to_keep : @immut/sorted_map.SortedMap[K, V],
+) -> @immut/sorted_map.SortedMap[K, V] {
+  @immut/sorted_map.SortedMap::filter_with_key(base_dict, fn(k, _v) {
+    @immut/sorted_map.SortedMap::contains(dict_with_keys_to_keep, k)
+  })
+}
+
+///|
+pub fn[K : Compare, V] dict_diff(
+  base_dict : @immut/sorted_map.SortedMap[K, V],
+  dict_with_keys_to_remove : @immut/sorted_map.SortedMap[K, V],
+) -> @immut/sorted_map.SortedMap[K, V] {
+  @immut/sorted_map.SortedMap::filter_with_key(base_dict, fn(k, _v) {
+    !@immut/sorted_map.SortedMap::contains(dict_with_keys_to_remove, k)
+  })
+}
+
+///|
+pub fn[K : Compare, A] dict_partition(
+  entry_is_first : (K, A) -> Bool,
+  dict : @immut/sorted_map.SortedMap[K, A],
+) -> (@immut/sorted_map.SortedMap[K, A], @immut/sorted_map.SortedMap[K, A]) {
+  (
+    @immut/sorted_map.SortedMap::filter_with_key(dict, entry_is_first),
+    @immut/sorted_map.SortedMap::filter_with_key(dict, fn(k, v) {
+      !entry_is_first(k, v)
+    }),
+  )
+}
+
+///|
+pub fn[K : Compare, VA, VB, State] dict_merge(
+  reduce_only_a : (K, VA, State) -> State,
+  reduce_both : (K, VA, VB, State) -> State,
+  reduce_only_b : (K, VB, State) -> State,
+  initial_state : State,
+  a_dict : @immut/sorted_map.SortedMap[K, VA],
+  b_dict : @immut/sorted_map.SortedMap[K, VB],
+) -> State {
+  Iter::concat(a_dict.keys_as_iter(), b_dict.keys_as_iter())
+  |> Iter::fold(init=initial_state, fn(so_far, key) {
+    match
+      (
+        @immut/sorted_map.SortedMap::get(a_dict, key),
+        @immut/sorted_map.SortedMap::get(b_dict, key),
+      ) {
+      (Option::None, Option::Some(only_b)) => reduce_only_b(key, only_b, so_far)
+      (Option::Some(only_a), Option::None) => reduce_only_a(key, only_a, so_far)
+      (Option::Some(va), Option::Some(vb)) => reduce_both(key, va, vb, so_far)
+      // impossible as the key will always be from either
+      (Option::None, Option::None) => so_far
+    }
+  })
+}
+
+///|
 pub(all) struct GeneratedOffsetStart[Offset, Start] {
   offset : Offset
   start : Start
