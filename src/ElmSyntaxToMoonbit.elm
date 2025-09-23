@@ -2233,7 +2233,6 @@ pattern context patternInferred =
                 reference :
                     { originTypeName : List String
                     , name : String
-                    , referencedValueIndexes : List Int
                     }
                 reference =
                     case
@@ -2257,16 +2256,6 @@ pattern context patternInferred =
                             in
                             { originTypeName = [ originTypeMoonbitName ]
                             , name = variant.name |> toPascalCaseMoonbitName
-                            , referencedValueIndexes =
-                                case context.moonbitEnumTypes |> FastDict.get originTypeMoonbitName of
-                                    Nothing ->
-                                        -- error
-                                        []
-
-                                    Just originMoonbitEnumType ->
-                                        originMoonbitEnumType.variantReferencedValueIndexes
-                                            |> FastDict.get (variant.name |> toPascalCaseMoonbitName)
-                                            |> Maybe.withDefault []
                             }
 
                 moonbitValues :
@@ -2944,26 +2933,25 @@ variantToCoreMoonbit :
         Maybe
             { originTypeName : List String
             , name : String
-            , referencedValueIndexes : List Int
             }
 variantToCoreMoonbit reference =
     case reference.moduleOrigin of
         "Basics" ->
             case reference.name of
                 "LT" ->
-                    Just { originTypeName = [ "BasicsOrder" ], name = "LT", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "BasicsOrder" ], name = "LT" }
 
                 "EQ" ->
-                    Just { originTypeName = [ "BasicsOrder" ], name = "EQ", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "BasicsOrder" ], name = "EQ" }
 
                 "GT" ->
-                    Just { originTypeName = [ "BasicsOrder" ], name = "LT", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "BasicsOrder" ], name = "LT" }
 
                 "True" ->
-                    Just { originTypeName = [], name = "true", referencedValueIndexes = [] }
+                    Just { originTypeName = [], name = "true" }
 
                 "False" ->
-                    Just { originTypeName = [], name = "false", referencedValueIndexes = [] }
+                    Just { originTypeName = [], name = "false" }
 
                 _ ->
                     Nothing
@@ -2971,10 +2959,10 @@ variantToCoreMoonbit reference =
         "Maybe" ->
             case reference.name of
                 "Nothing" ->
-                    Just { originTypeName = [ "Option" ], name = "None", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "Option" ], name = "None" }
 
                 "Just" ->
-                    Just { originTypeName = [ "Option" ], name = "Some", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "Option" ], name = "Some" }
 
                 _ ->
                     Nothing
@@ -2982,10 +2970,10 @@ variantToCoreMoonbit reference =
         "Result" ->
             case reference.name of
                 "Err" ->
-                    Just { originTypeName = [ "Result" ], name = "Err", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "Result" ], name = "Err" }
 
                 "Ok" ->
-                    Just { originTypeName = [ "Result" ], name = "Ok", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "Result" ], name = "Ok" }
 
                 _ ->
                     Nothing
@@ -2993,16 +2981,16 @@ variantToCoreMoonbit reference =
         "Json.Decode" ->
             case reference.name of
                 "Field" ->
-                    Just { originTypeName = [ "JsonDecodeError" ], name = "Field", referencedValueIndexes = [ 1 ] }
+                    Just { originTypeName = [ "JsonDecodeError" ], name = "Field" }
 
                 "Index" ->
-                    Just { originTypeName = [ "JsonDecodeError" ], name = "Index", referencedValueIndexes = [ 1 ] }
+                    Just { originTypeName = [ "JsonDecodeError" ], name = "Index" }
 
                 "OneOf" ->
-                    Just { originTypeName = [ "JsonDecodeError" ], name = "OneOf", referencedValueIndexes = [ 0 ] }
+                    Just { originTypeName = [ "JsonDecodeError" ], name = "OneOf" }
 
                 "Failure" ->
-                    Just { originTypeName = [ "JsonDecodeError" ], name = "Failure", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "JsonDecodeError" ], name = "Failure" }
 
                 _ ->
                     Nothing
@@ -3010,10 +2998,10 @@ variantToCoreMoonbit reference =
         "Bytes" ->
             case reference.name of
                 "LE" ->
-                    Just { originTypeName = [ "BytesEndianness" ], name = "LE", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "BytesEndianness" ], name = "LE" }
 
                 "BE" ->
-                    Just { originTypeName = [ "BytesEndianness" ], name = "BE", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "BytesEndianness" ], name = "BE" }
 
                 _ ->
                     Nothing
@@ -3021,16 +3009,16 @@ variantToCoreMoonbit reference =
         "VirtualDom" ->
             case reference.name of
                 "Normal" ->
-                    Just { originTypeName = [ "VirtualDomHandler" ], name = "Normal", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "VirtualDomHandler" ], name = "Normal" }
 
                 "MayStopPropagation" ->
-                    Just { originTypeName = [ "VirtualDomHandler" ], name = "MayStopPropagation", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "VirtualDomHandler" ], name = "MayStopPropagation" }
 
                 "MayPreventDefault" ->
-                    Just { originTypeName = [ "VirtualDomHandler" ], name = "MayPreventDefault", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "VirtualDomHandler" ], name = "MayPreventDefault" }
 
                 "Custom" ->
-                    Just { originTypeName = [ "VirtualDomHandler" ], name = "Custom", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "VirtualDomHandler" ], name = "Custom" }
 
                 _ ->
                     Nothing
@@ -3038,10 +3026,10 @@ variantToCoreMoonbit reference =
         "Bytes.Decode" ->
             case reference.name of
                 "Loop" ->
-                    Just { originTypeName = [ "BytesDecodeStep" ], name = "Loop", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "BytesDecodeStep" ], name = "Loop" }
 
                 "Done" ->
-                    Just { originTypeName = [ "BytesDecodeStep" ], name = "Done", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "BytesDecodeStep" ], name = "Done" }
 
                 _ ->
                     Nothing
@@ -3049,67 +3037,67 @@ variantToCoreMoonbit reference =
         "Time" ->
             case reference.name of
                 "Name" ->
-                    Just { originTypeName = [ "TimeZoneName" ], name = "Name", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeZoneName" ], name = "Name" }
 
                 "Offset" ->
-                    Just { originTypeName = [ "TimeZoneName" ], name = "Offset", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeZoneName" ], name = "Offset" }
 
                 "Jan" ->
-                    Just { originTypeName = [ "TimeMonth" ], name = "Jan", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeMonth" ], name = "Jan" }
 
                 "Feb" ->
-                    Just { originTypeName = [ "TimeMonth" ], name = "Feb", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeMonth" ], name = "Feb" }
 
                 "Mar" ->
-                    Just { originTypeName = [ "TimeMonth" ], name = "Mar", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeMonth" ], name = "Mar" }
 
                 "Apr" ->
-                    Just { originTypeName = [ "TimeMonth" ], name = "Apr", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeMonth" ], name = "Apr" }
 
                 "May" ->
-                    Just { originTypeName = [ "TimeMonth" ], name = "May", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeMonth" ], name = "May" }
 
                 "Jun" ->
-                    Just { originTypeName = [ "TimeMonth" ], name = "Jun", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeMonth" ], name = "Jun" }
 
                 "Jul" ->
-                    Just { originTypeName = [ "TimeMonth" ], name = "Jul", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeMonth" ], name = "Jul" }
 
                 "Aug" ->
-                    Just { originTypeName = [ "TimeMonth" ], name = "Aug", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeMonth" ], name = "Aug" }
 
                 "Sep" ->
-                    Just { originTypeName = [ "TimeMonth" ], name = "Sep", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeMonth" ], name = "Sep" }
 
                 "Oct" ->
-                    Just { originTypeName = [ "TimeMonth" ], name = "Oct", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeMonth" ], name = "Oct" }
 
                 "Nov" ->
-                    Just { originTypeName = [ "TimeMonth" ], name = "Nov", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeMonth" ], name = "Nov" }
 
                 "Dec" ->
-                    Just { originTypeName = [ "TimeMonth" ], name = "Dec", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeMonth" ], name = "Dec" }
 
                 "Mon" ->
-                    Just { originTypeName = [ "TimeWeekday" ], name = "Mon", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeWeekday" ], name = "Mon" }
 
                 "Tue" ->
-                    Just { originTypeName = [ "TimeWeekday" ], name = "Tue", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeWeekday" ], name = "Tue" }
 
                 "Wed" ->
-                    Just { originTypeName = [ "TimeWeekday" ], name = "Wed", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeWeekday" ], name = "Wed" }
 
                 "Thu" ->
-                    Just { originTypeName = [ "TimeWeekday" ], name = "Thu", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeWeekday" ], name = "Thu" }
 
                 "Fri" ->
-                    Just { originTypeName = [ "TimeWeekday" ], name = "Fri", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeWeekday" ], name = "Fri" }
 
                 "Sat" ->
-                    Just { originTypeName = [ "TimeWeekday" ], name = "Sat", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeWeekday" ], name = "Sat" }
 
                 "Sun" ->
-                    Just { originTypeName = [ "TimeWeekday" ], name = "Sun", referencedValueIndexes = [] }
+                    Just { originTypeName = [ "TimeWeekday" ], name = "Sun" }
 
                 _ ->
                     Nothing
@@ -8321,7 +8309,6 @@ expression context expressionTypedNode =
                 asMoonbitVariant :
                     { originTypeName : List String
                     , name : String
-                    , referencedValueIndexes : List Int
                     }
                 asMoonbitVariant =
                     case
@@ -8345,24 +8332,11 @@ expression context expressionTypedNode =
                             in
                             { name = reference.name |> toPascalCaseMoonbitName
                             , originTypeName = [ originTypeMoonbitName ]
-                            , referencedValueIndexes =
-                                case context.moonbitEnumTypes |> FastDict.get originTypeMoonbitName of
-                                    Nothing ->
-                                        -- error
-                                        []
-
-                                    Just originMoonbitEnumType ->
-                                        originMoonbitEnumType.variantReferencedValueIndexes
-                                            |> FastDict.get (reference.name |> toPascalCaseMoonbitName)
-                                            |> Maybe.withDefault []
                             }
 
                 moonbitExpressionVariantValue : MoonbitExpression
                 moonbitExpressionVariantValue =
-                    MoonbitExpressionReferenceVariant
-                        { originTypeName = asMoonbitVariant.originTypeName
-                        , name = asMoonbitVariant.name
-                        }
+                    MoonbitExpressionReferenceVariant asMoonbitVariant
 
                 variantReferenceTypeExpandedAsFunction : { inputs : List ElmSyntaxTypeInfer.Type, output : ElmSyntaxTypeInfer.Type }
                 variantReferenceTypeExpandedAsFunction =
