@@ -1,4 +1,4 @@
-> Status: somewhat simple programs only relying on elm/core, elm/html, elm/svg, elm/time, elm/parser are likely to succeed, others will probably fail.
+> Status: somewhat simple programs only relying on elm/core, elm/html, elm/svg, elm/time, elm/parser, elm/bytes are likely to succeed, others will probably fail.
 
 Print [`elm-syntax`](https://dark.elm.dmy.fr/packages/stil4m/elm-syntax/latest/) declarations as [moonbit](https://docs.moonbitlang.com/en/latest/index.html) code.
 To try it out, you can
@@ -35,7 +35,7 @@ pub fn sample_plus2(n: Double) -> Double {
 
 - not supported are
     - ports that use non-json values like `port sendMessage : String -> Cmd msg`, glsl, phantom types, `==` on a generic value
-    - `elm/file`, `elm/http`, `elm/browser`, `elm-explorations/markdown`, `elm-explorations/webgl`, `elm-explorations/benchmark`, `elm/regex` (because no support in `moonbitlang/core`), `elm-explorations/linear-algebra` (because no support in `moonbitlang/core`). TODO currently also `elm/bytes`, `elm/random`
+    - `elm/file`, `elm/http`, `elm/browser`, `elm-explorations/markdown`, `elm-explorations/webgl`, `elm-explorations/benchmark`, `elm/regex` (because no support in `moonbitlang/core`), `elm-explorations/linear-algebra` (because no support in `moonbitlang/core`). TODO currently also `elm/random`
     - `Task`, `Process`, `Platform.Task`, `Platform.ProcessId`, `Platform.Router`, `Platform.sendToApp`, `Platform.sendToSelf`, `Random.generate`, `Time.now`, `Time.every`, `Time.here`, `Time.getZoneName`, `Bytes.getHostEndianness`
     - extensible record types outside of module-level value/function declarations. For example, these declarations might not work:
         ```elm
@@ -106,10 +106,12 @@ In the transpiled code, you will find these types:
 - elm `Int`s will be of type `Int64`. Create and match by appending `L` to any number literal or using `Int::to_int64`/`Int64::from_int`
 - elm `Float`s will be of type `f64`. Create and match by using any number literal with a decimal point
 - elm `String`s (like `"a"`) will be of the custom type `StringString`.
-  Create from literals or other string slices with (`StringString::One("a")`). Match with `your_string if string_equals_str(your_string, "some string")`
+  Create from literals or other string slices with (`StringString::One("a")`). Match with `your_string if string_string_string_equals_stringing(your_string, "some string")`
+- elm records like `{ y : Float, x : Float }` will be of type `GeneratedXY<f64, f64>` with the fields sorted and can be constructed and matched with `{ x: _, y: _ }`. `record.x` access also works
 - elm `Array`s (like `Array.fromList [ 'a' ]`) will be of type `@immut/array.Array`.
   Create and match with the helpers in [`@immut/array`](https://mooncakes.io/docs/moonbitlang/core/immut/array)
-- elm records like `{ y : Float, x : Float }` will be of type `GeneratedXY<f64, f64>` with the fields sorted and can be constructed and matched with `{ x: _, y: _ }`. `record.x` access also works
+- elm `Bytes.Bytes` will be of type `Bytes`.
+  Create and match with the helpers in [`@bytes`/`Bytes::`](https://mooncakes.io/docs/moonbitlang/core/bytes)
 - a transpiled elm app does not run itself.
   An elm main `Platform.worker` program type will literally just consist of fields `init`, `update` and `subscriptions` where
   subscriptions/commands are returned as a list of `PlatformSubSingle`/`PlatformCmdSingle` with possible elm subscriptions/commands in a choice type.

@@ -2335,7 +2335,7 @@ moonbitExpressionReferenceBasicsEq =
 moonbitExpressionReferenceStringEqualsStr : MoonbitExpression
 moonbitExpressionReferenceStringEqualsStr =
     MoonbitExpressionReference
-        { qualification = [], name = "string_equals_str" }
+        { qualification = [], name = "string_string_equals_string" }
 
 
 stringAsGeneratedMoonbitPatternBindingName : String -> String
@@ -2621,7 +2621,7 @@ typeConstructReferenceToCoreMoonbit reference =
                 "Bytes" ->
                     Just
                         { qualification = []
-                        , name = "BytesBytes"
+                        , name = "Bytes"
                         , isShow = True
                         , isEq = True
                         }
@@ -4732,7 +4732,7 @@ referenceToCoreMoonbit reference =
                     Just { qualification = [], name = "bytes_encode_string" }
 
                 "getStringWidth" ->
-                    Just { qualification = [], name = "string_length" }
+                    Just { qualification = [], name = "bytes_encode_get_string_width" }
 
                 "sequence" ->
                     Just { qualification = [], name = "bytes_encode_sequence" }
@@ -8206,7 +8206,7 @@ expression context expressionTypedNode =
                     Result.map2
                         (\left right ->
                             -- small "optimization": if one side is a literal in elm,
-                            -- use string_equals_str instead of wrapping in StringString::One
+                            -- use string_string_equals_string instead of wrapping in StringString::One
                             case left |> moonbitExpressionStringStringOneToLiteral of
                                 Just leftStringLiteral ->
                                     MoonbitExpressionCall
@@ -30290,6 +30290,11 @@ impl Eq for StringString with equal(self, other) {
 }
 
 ///|
+pub fn string_string_equals_string(string : StringString, str : String) -> Bool {
+  string_string_to_string(string) == str
+}
+
+///|
 impl Compare for StringString with compare(self, other) -> Int {
   String::compare(string_string_to_string(self), string_string_to_string(other))
 }
@@ -33190,6 +33195,490 @@ pub fn elm_kernel_parser_find_sub_string(
         Int::to_int64(col),
       )
     }
+  }
+}
+
+///|
+pub(all) enum BytesEndianness {
+  LE
+  BE
+}
+
+///|
+pub fn bytes_width(bytes : Bytes) -> Int64 {
+  Int::to_int64(Bytes::length(bytes))
+}
+
+///|
+pub(all) enum BytesEncodeEncoder {
+  I8(Byte)
+  I16(BytesEndianness, Int16)
+  I32(BytesEndianness, Int)
+  U8(Byte)
+  U16(BytesEndianness, UInt16)
+  U32(BytesEndianness, UInt)
+  F32(BytesEndianness, Float)
+  F64(BytesEndianness, Double)
+  Utf8(String)
+  Bytes(Bytes)
+  Seq(@list.List[BytesEncodeEncoder])
+}
+
+///|
+pub fn basics_encode_encode(encoder : BytesEncodeEncoder) -> Bytes {
+  let bytes_buffer : @buffer.Buffer = @buffer.new()
+  loop (encoder, @list.empty()) {
+    (BytesEncodeEncoder::U8(byte), remaining_encoders) => {
+      @buffer.Buffer::write_byte(bytes_buffer, byte)
+      match remaining_encoders {
+        @list.List::Empty => break
+        @list.List::More(next_encoder, tail=next_remaining_encoders) =>
+          continue (next_encoder, next_remaining_encoders)
+      }
+    }
+    (BytesEncodeEncoder::I8(byte), remaining_encoders) => {
+      @buffer.Buffer::write_byte(bytes_buffer, byte)
+      match remaining_encoders {
+        @list.List::Empty => break
+        @list.List::More(next_encoder, tail=next_remaining_encoders) =>
+          continue (next_encoder, next_remaining_encoders)
+      }
+    }
+    (BytesEncodeEncoder::U16(endianness, u16), remaining_encoders) => {
+      buffer_write_uint16(bytes_buffer, endianness, u16)
+      match remaining_encoders {
+        @list.List::Empty => break
+        @list.List::More(next_encoder, tail=next_remaining_encoders) =>
+          continue (next_encoder, next_remaining_encoders)
+      }
+    }
+    (BytesEncodeEncoder::I16(endianness, i16), remaining_encoders) => {
+      // moonbit has no direct Int16 to bytes conversion which is weird
+      buffer_write_uint16(
+        bytes_buffer,
+        endianness,
+        Int16::reinterpret_as_uint16(i16),
+      )
+      match remaining_encoders {
+        @list.List::Empty => break
+        @list.List::More(next_encoder, tail=next_remaining_encoders) =>
+          continue (next_encoder, next_remaining_encoders)
+      }
+    }
+    (BytesEncodeEncoder::U32(endianness, u32), remaining_encoders) => {
+      (match endianness {
+        BytesEndianness::LE => @buffer.Buffer::write_uint_le
+        BytesEndianness::BE => @buffer.Buffer::write_uint_be
+      })(bytes_buffer, u32)
+      match remaining_encoders {
+        @list.List::Empty => break
+        @list.List::More(next_encoder, tail=next_remaining_encoders) =>
+          continue (next_encoder, next_remaining_encoders)
+      }
+    }
+    (BytesEncodeEncoder::I32(endianness, i32), remaining_encoders) => {
+      (match endianness {
+        BytesEndianness::LE => @buffer.Buffer::write_int_le
+        BytesEndianness::BE => @buffer.Buffer::write_int_be
+      })(bytes_buffer, i32)
+      match remaining_encoders {
+        @list.List::Empty => break
+        @list.List::More(next_encoder, tail=next_remaining_encoders) =>
+          continue (next_encoder, next_remaining_encoders)
+      }
+    }
+    (BytesEncodeEncoder::F32(endianness, f32), remaining_encoders) => {
+      (match endianness {
+        BytesEndianness::LE => @buffer.Buffer::write_float_le
+        BytesEndianness::BE => @buffer.Buffer::write_float_be
+      })(bytes_buffer, f32)
+      match remaining_encoders {
+        @list.List::Empty => break
+        @list.List::More(next_encoder, tail=next_remaining_encoders) =>
+          continue (next_encoder, next_remaining_encoders)
+      }
+    }
+    (BytesEncodeEncoder::F64(endianness, f64), remaining_encoders) => {
+      (match endianness {
+        BytesEndianness::LE => @buffer.Buffer::write_double_le
+        BytesEndianness::BE => @buffer.Buffer::write_double_be
+      })(bytes_buffer, f64)
+      match remaining_encoders {
+        @list.List::Empty => break
+        @list.List::More(next_encoder, tail=next_remaining_encoders) =>
+          continue (next_encoder, next_remaining_encoders)
+      }
+    }
+    (BytesEncodeEncoder::Bytes(bytes), remaining_encoders) => {
+      @buffer.Buffer::write_bytes(bytes_buffer, bytes)
+      match remaining_encoders {
+        @list.List::Empty => break
+        @list.List::More(next_encoder, tail=next_remaining_encoders) =>
+          continue (next_encoder, next_remaining_encoders)
+      }
+    }
+    (BytesEncodeEncoder::Utf8(string), remaining_encoders) => {
+      @buffer.Buffer::write_string_utf8(bytes_buffer, string)
+      match remaining_encoders {
+        @list.List::Empty => break
+        @list.List::More(next_encoder, tail=next_remaining_encoders) =>
+          continue (next_encoder, next_remaining_encoders)
+      }
+    }
+    (BytesEncodeEncoder::Seq(subs), remaining_encoders) =>
+      match subs {
+        @list.List::Empty =>
+          match remaining_encoders {
+            @list.List::Empty => break
+            @list.List::More(next_encoder, tail=next_remaining_encoders) =>
+              continue (next_encoder, next_remaining_encoders)
+          }
+        @list.List::More(next_encoder, tail=seq_remaining_encoders) =>
+          continue (
+              next_encoder,
+              @list.List::concat(seq_remaining_encoders, remaining_encoders),
+            )
+      }
+  }
+  @buffer.Buffer::contents(bytes_buffer)
+}
+
+///|
+fn buffer_write_uint16(
+  bytes_buffer : @buffer.Buffer,
+  endianness : BytesEndianness,
+  u16 : UInt16,
+) -> Unit {
+  // moonbit has no direct UInt16 to bytes conversion which is weird
+  match endianness {
+    BytesEndianness::LE => {
+      @buffer.Buffer::write_byte(bytes_buffer, UInt16::to_byte(u16))
+      @buffer.Buffer::write_byte(bytes_buffer, UInt16::to_byte(u16 >> 8))
+    }
+    BytesEndianness::BE => {
+      @buffer.Buffer::write_byte(bytes_buffer, UInt16::to_byte(u16 >> 8))
+      @buffer.Buffer::write_byte(bytes_buffer, UInt16::to_byte(u16))
+    }
+  }
+}
+
+///|
+pub fn bytes_encode_bytes(bytes : Bytes) -> BytesEncodeEncoder {
+  BytesEncodeEncoder::Bytes(bytes)
+}
+
+///|
+pub fn bytes_encode_unsigned_int8(int : Int64) -> BytesEncodeEncoder {
+  BytesEncodeEncoder::U8(Int64::to_byte(int))
+}
+
+///|
+pub fn bytes_encode_signed_int8(int : Int64) -> BytesEncodeEncoder {
+  BytesEncodeEncoder::U8(UInt16::to_byte(Int64::to_uint16(int)))
+}
+
+///|
+pub fn bytes_encode_unsigned_int16(
+  endianness : BytesEndianness,
+  int : Int64,
+) -> BytesEncodeEncoder {
+  BytesEncodeEncoder::U16(endianness, Int64::to_uint16(int))
+}
+
+///|
+pub fn bytes_encode_signed_int16(
+  endianness : BytesEndianness,
+  int : Int64,
+) -> BytesEncodeEncoder {
+  BytesEncodeEncoder::I16(endianness, Int64::to_int16(int))
+}
+
+///|
+pub fn bytes_encode_unsigned_int32(
+  endianness : BytesEndianness,
+  int : Int64,
+) -> BytesEncodeEncoder {
+  BytesEncodeEncoder::U32(
+    endianness,
+    // moonbit has no direct Int64 to UInt conversion which is weird
+    BigInt::to_uint(BigInt::from_int64(int)),
+  )
+}
+
+///|
+pub fn bytes_encode_signed_int32(
+  endianness : BytesEndianness,
+  int : Int64,
+) -> BytesEncodeEncoder {
+  BytesEncodeEncoder::I32(endianness, Int64::to_int(int))
+}
+
+///|
+pub fn bytes_encode_signed_float32(
+  endianness : BytesEndianness,
+  double : Double,
+) -> BytesEncodeEncoder {
+  BytesEncodeEncoder::F32(endianness, Double::to_float(double))
+}
+
+///|
+pub fn bytes_encode_signed_float64(
+  endianness : BytesEndianness,
+  double : Double,
+) -> BytesEncodeEncoder {
+  BytesEncodeEncoder::F64(endianness, double)
+}
+
+///|
+pub fn bytes_encode_get_string_width(string : StringString) -> Int64 {
+  string
+  |> string_string_to_string
+  |> @encoding/utf8.encode
+  |> Bytes::length
+  |> Int::to_int64
+}
+
+///|
+pub fn bytes_encode_string(string : StringString) -> BytesEncodeEncoder {
+  BytesEncodeEncoder::Utf8(string_string_to_string(string))
+}
+
+///|
+pub fn bytes_encode_sequence(
+  encoders : @list.List[BytesEncodeEncoder],
+) -> BytesEncodeEncoder {
+  BytesEncodeEncoder::Seq(encoders)
+}
+
+///|
+pub(all) struct BytesDecodeDecoder[A] {
+  decode : (Int, BytesView) -> BytesDecodeSuccess[A]?
+}
+
+///|
+pub(all) struct BytesDecodeSuccess[A] {
+  index_after : Int
+  result : A
+}
+
+///|
+pub fn[A] bytes_decode_decode(
+  decoder : BytesDecodeDecoder[A],
+  bytes : Bytes,
+) -> A? {
+  match (decoder.decode)(0, bytes) {
+    Option::None => Option::None
+    Option::Some({ index_after: _, result }) => Option::Some(result)
+  }
+}
+
+///|
+pub fn[A] bytes_decode_fail() -> BytesDecodeDecoder[A] {
+  BytesDecodeDecoder::{ decode: fn(_index, _bytes) { Option::None } }
+}
+
+///|
+pub fn[A] bytes_decode_succeed(result : A) -> BytesDecodeDecoder[A] {
+  BytesDecodeDecoder::{
+    decode: fn(index, _bytes) {
+      Option::Some(BytesDecodeSuccess::{ index_after: index, result })
+    },
+  }
+}
+
+///|
+pub fn[A, B] bytes_decode_and_then(
+  followup : (A) -> BytesDecodeDecoder[B],
+  decoder : BytesDecodeDecoder[A],
+) -> BytesDecodeDecoder[B] {
+  BytesDecodeDecoder::{
+    decode: fn(index, bytes) {
+      (decoder.decode)(index, bytes)
+      |> Option::bind(fn(decoded) {
+        (followup(decoded.result).decode)(decoded.index_after, bytes)
+      })
+    },
+  }
+}
+
+///|
+pub fn[A, B] bytes_decode_map(
+  result_change : (A) -> B,
+  decoder : BytesDecodeDecoder[A],
+) -> BytesDecodeDecoder[B] {
+  BytesDecodeDecoder::{
+    decode: fn(index, bytes) {
+      (decoder.decode)(index, bytes)
+      |> Option::map(fn(decoded) {
+        BytesDecodeSuccess::{
+          index_after: decoded.index_after,
+          result: result_change(decoded.result),
+        }
+      })
+    },
+  }
+}
+
+///|
+pub fn[A, B, Combined] bytes_decode_map2(
+  combine : (A, B) -> Combined,
+  a_decoder : BytesDecodeDecoder[A],
+  b_decoder : BytesDecodeDecoder[B],
+) -> BytesDecodeDecoder[Combined] {
+  BytesDecodeDecoder::{
+    decode: fn(index, bytes) {
+      (a_decoder.decode)(index, bytes)
+      |> Option::bind(fn(a) {
+        (b_decoder.decode)(a.index_after, bytes)
+        |> Option::map(fn(b) {
+          BytesDecodeSuccess::{
+            index_after: b.index_after,
+            result: combine(a.result, b.result),
+          }
+        })
+      })
+    },
+  }
+}
+
+///|
+pub fn[A, B, C, Combined] bytes_decode_map3(
+  combine : (A, B, C) -> Combined,
+  a_decoder : BytesDecodeDecoder[A],
+  b_decoder : BytesDecodeDecoder[B],
+  c_decoder : BytesDecodeDecoder[C],
+) -> BytesDecodeDecoder[Combined] {
+  BytesDecodeDecoder::{
+    decode: fn(index, bytes) {
+      (a_decoder.decode)(index, bytes)
+      |> Option::bind(fn(a) {
+        (b_decoder.decode)(a.index_after, bytes)
+        |> Option::bind(fn(b) {
+          (c_decoder.decode)(b.index_after, bytes)
+          |> Option::map(fn(c) {
+            BytesDecodeSuccess::{
+              index_after: b.index_after,
+              result: combine(a.result, b.result, c.result),
+            }
+          })
+        })
+      })
+    },
+  }
+}
+
+///|
+pub fn[A, B, C, D, Combined] bytes_decode_map4(
+  combine : (A, B, C, D) -> Combined,
+  a_decoder : BytesDecodeDecoder[A],
+  b_decoder : BytesDecodeDecoder[B],
+  c_decoder : BytesDecodeDecoder[C],
+  d_decoder : BytesDecodeDecoder[D],
+) -> BytesDecodeDecoder[Combined] {
+  BytesDecodeDecoder::{
+    decode: fn(index, bytes) {
+      (a_decoder.decode)(index, bytes)
+      |> Option::bind(fn(a) {
+        (b_decoder.decode)(a.index_after, bytes)
+        |> Option::bind(fn(b) {
+          (c_decoder.decode)(b.index_after, bytes)
+          |> Option::bind(fn(c) {
+            (d_decoder.decode)(c.index_after, bytes)
+            |> Option::map(fn(d) {
+              BytesDecodeSuccess::{
+                index_after: b.index_after,
+                result: combine(a.result, b.result, c.result, d.result),
+              }
+            })
+          })
+        })
+      })
+    },
+  }
+}
+
+///|
+pub fn[A, B, C, D, E, Combined] bytes_decode_map5(
+  combine : (A, B, C, D, E) -> Combined,
+  a_decoder : BytesDecodeDecoder[A],
+  b_decoder : BytesDecodeDecoder[B],
+  c_decoder : BytesDecodeDecoder[C],
+  d_decoder : BytesDecodeDecoder[D],
+  e_decoder : BytesDecodeDecoder[E],
+) -> BytesDecodeDecoder[Combined] {
+  BytesDecodeDecoder::{
+    decode: fn(index, bytes) {
+      (a_decoder.decode)(index, bytes)
+      |> Option::bind(fn(a) {
+        (b_decoder.decode)(a.index_after, bytes)
+        |> Option::bind(fn(b) {
+          (c_decoder.decode)(b.index_after, bytes)
+          |> Option::bind(fn(c) {
+            (d_decoder.decode)(c.index_after, bytes)
+            |> Option::bind(fn(d) {
+              (e_decoder.decode)(d.index_after, bytes)
+              |> Option::map(fn(e) {
+                BytesDecodeSuccess::{
+                  index_after: b.index_after,
+                  result: combine(
+                    a.result,
+                    b.result,
+                    c.result,
+                    d.result,
+                    e.result,
+                  ),
+                }
+              })
+            })
+          })
+        })
+      })
+    },
+  }
+}
+
+///|
+pub(all) enum BytesDecodeStep[State, Result] {
+  Loop(State)
+  Done(Result)
+}
+
+///|
+pub fn[State, Result] bytes_decode_loop(
+  initial_state : State,
+  step : (State) -> BytesDecodeDecoder[BytesDecodeStep[State, Result]],
+) -> BytesDecodeDecoder[Result] {
+  BytesDecodeDecoder::{
+    decode: fn(index, bytes) {
+      bytes_decode_loop_from(initial_state, index, bytes, step)
+    },
+  }
+}
+
+///|
+fn[State, Result] bytes_decode_loop_from(
+  state : State,
+  index : Int,
+  bytes : BytesView,
+  step : (State) -> BytesDecodeDecoder[BytesDecodeStep[State, Result]],
+) -> BytesDecodeSuccess[Result]? {
+  match (step(state).decode)(index, bytes) {
+    Option::None => Option::None
+    Option::Some(step_decode_result) =>
+      match step_decode_result.result {
+        BytesDecodeStep::Loop(next_state) =>
+          bytes_decode_loop_from(
+            next_state,
+            step_decode_result.index_after,
+            bytes,
+            step,
+          )
+        BytesDecodeStep::Done(result) =>
+          Option::Some(BytesDecodeSuccess::{
+            index_after: step_decode_result.index_after,
+            result,
+          })
+      }
   }
 }
 """
