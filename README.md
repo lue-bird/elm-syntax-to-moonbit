@@ -1,4 +1,4 @@
-> Status: somewhat simple programs only relying on elm/core are likely to succeed, others will probably fail.
+> Status: somewhat simple programs only relying on elm/core, elm/html, elm/svg, elm/time are likely to succeed, others will probably fail.
 
 Print [`elm-syntax`](https://dark.elm.dmy.fr/packages/stil4m/elm-syntax/latest/) declarations as [moonbit](https://docs.moonbitlang.com/en/latest/index.html) code.
 To try it out, you can
