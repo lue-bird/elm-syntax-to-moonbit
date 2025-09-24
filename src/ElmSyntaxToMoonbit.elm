@@ -32426,4 +32426,222 @@ pub fn[A] json_decode_one_of(
     },
   }
 }
+
+///|
+pub fn[A, B] json_decode_map(
+  value_change : (A) -> B,
+  a_decoder : JsonDecodeDecoder[A],
+) -> JsonDecodeDecoder[B] {
+  JsonDecodeDecoder::{
+    decode: fn(json) { result_map(value_change, (a_decoder.decode)(json)) },
+  }
+}
+
+///|
+pub fn[A, B, Combined] json_decode_map2(
+  combine : (A, B) -> Combined,
+  a_decoder : JsonDecodeDecoder[A],
+  b_decoder : JsonDecodeDecoder[B],
+) -> JsonDecodeDecoder[Combined] {
+  JsonDecodeDecoder::{
+    decode: fn(json) {
+      result_map2(combine, (a_decoder.decode)(json), (b_decoder.decode)(json))
+    },
+  }
+}
+
+///|
+pub fn[A, B, C, Combined] json_decode_map3(
+  combine : (A, B, C) -> Combined,
+  a_decoder : JsonDecodeDecoder[A],
+  b_decoder : JsonDecodeDecoder[B],
+  c_decoder : JsonDecodeDecoder[C],
+) -> JsonDecodeDecoder[Combined] {
+  JsonDecodeDecoder::{
+    decode: fn(json) {
+      result_map3(
+        combine,
+        (a_decoder.decode)(json),
+        (b_decoder.decode)(json),
+        (c_decoder.decode)(json),
+      )
+    },
+  }
+}
+
+///|
+pub fn[A, B, C, D, Combined] json_decode_map4(
+  combine : (A, B, C, D) -> Combined,
+  a_decoder : JsonDecodeDecoder[A],
+  b_decoder : JsonDecodeDecoder[B],
+  c_decoder : JsonDecodeDecoder[C],
+  d_decoder : JsonDecodeDecoder[D],
+) -> JsonDecodeDecoder[Combined] {
+  JsonDecodeDecoder::{
+    decode: fn(json) {
+      result_map4(
+        combine,
+        (a_decoder.decode)(json),
+        (b_decoder.decode)(json),
+        (c_decoder.decode)(json),
+        (d_decoder.decode)(json),
+      )
+    },
+  }
+}
+
+///|
+pub fn[A, B, C, D, E, Combined] json_decode_map5(
+  combine : (A, B, C, D, E) -> Combined,
+  a_decoder : JsonDecodeDecoder[A],
+  b_decoder : JsonDecodeDecoder[B],
+  c_decoder : JsonDecodeDecoder[C],
+  d_decoder : JsonDecodeDecoder[D],
+  e_decoder : JsonDecodeDecoder[E],
+) -> JsonDecodeDecoder[Combined] {
+  JsonDecodeDecoder::{
+    decode: fn(json) {
+      result_map5(
+        combine,
+        (a_decoder.decode)(json),
+        (b_decoder.decode)(json),
+        (c_decoder.decode)(json),
+        (d_decoder.decode)(json),
+        (e_decoder.decode)(json),
+      )
+    },
+  }
+}
+
+///|
+pub fn[A, B, C, D, E, F, Combined] json_decode_map6(
+  combine : (A, B, C, D, E, F) -> Combined,
+  a_decoder : JsonDecodeDecoder[A],
+  b_decoder : JsonDecodeDecoder[B],
+  c_decoder : JsonDecodeDecoder[C],
+  d_decoder : JsonDecodeDecoder[D],
+  e_decoder : JsonDecodeDecoder[E],
+  f_decoder : JsonDecodeDecoder[F],
+) -> JsonDecodeDecoder[Combined] {
+  JsonDecodeDecoder::{
+    decode: fn(json) {
+      match
+        (
+          (a_decoder.decode)(json),
+          (b_decoder.decode)(json),
+          (c_decoder.decode)(json),
+          (d_decoder.decode)(json),
+          (e_decoder.decode)(json),
+          (f_decoder.decode)(json),
+        ) {
+        (
+          Result::Ok(a),
+          Result::Ok(b),
+          Result::Ok(c),
+          Result::Ok(d),
+          Result::Ok(e),
+          Result::Ok(f),
+        ) => Result::Ok(combine(a, b, c, d, e, f))
+        (_, _, _, _, _, Result::Err(error))
+        | (_, _, _, _, Result::Err(error), _)
+        | (_, _, _, Result::Err(error), _, _)
+        | (_, _, Result::Err(error), _, _, _)
+        | (_, Result::Err(error), _, _, _, _)
+        | (Result::Err(error), _, _, _, _, _) => Result::Err(error)
+      }
+    },
+  }
+}
+
+///|
+pub fn[A, B, C, D, E, F, G, Combined] json_decode_map7(
+  combine : (A, B, C, D, E, F, G) -> Combined,
+  a_decoder : JsonDecodeDecoder[A],
+  b_decoder : JsonDecodeDecoder[B],
+  c_decoder : JsonDecodeDecoder[C],
+  d_decoder : JsonDecodeDecoder[D],
+  e_decoder : JsonDecodeDecoder[E],
+  f_decoder : JsonDecodeDecoder[F],
+  g_decoder : JsonDecodeDecoder[G],
+) -> JsonDecodeDecoder[Combined] {
+  JsonDecodeDecoder::{
+    decode: fn(json) {
+      match
+        (
+          (a_decoder.decode)(json),
+          (b_decoder.decode)(json),
+          (c_decoder.decode)(json),
+          (d_decoder.decode)(json),
+          (e_decoder.decode)(json),
+          (f_decoder.decode)(json),
+          (g_decoder.decode)(json),
+        ) {
+        (
+          Result::Ok(a),
+          Result::Ok(b),
+          Result::Ok(c),
+          Result::Ok(d),
+          Result::Ok(e),
+          Result::Ok(f),
+          Result::Ok(g),
+        ) => Result::Ok(combine(a, b, c, d, e, f, g))
+        (_, _, _, _, _, _, Result::Err(error))
+        | (_, _, _, _, _, Result::Err(error), _)
+        | (_, _, _, _, Result::Err(error), _, _)
+        | (_, _, _, Result::Err(error), _, _, _)
+        | (_, _, Result::Err(error), _, _, _, _)
+        | (_, Result::Err(error), _, _, _, _, _)
+        | (Result::Err(error), _, _, _, _, _, _) => Result::Err(error)
+      }
+    },
+  }
+}
+
+///|
+pub fn[A, B, C, D, E, F, G, H, Combined] json_decode_map8(
+  combine : (A, B, C, D, E, F, G, H) -> Combined,
+  a_decoder : JsonDecodeDecoder[A],
+  b_decoder : JsonDecodeDecoder[B],
+  c_decoder : JsonDecodeDecoder[C],
+  d_decoder : JsonDecodeDecoder[D],
+  e_decoder : JsonDecodeDecoder[E],
+  f_decoder : JsonDecodeDecoder[F],
+  g_decoder : JsonDecodeDecoder[G],
+  h_decoder : JsonDecodeDecoder[H],
+) -> JsonDecodeDecoder[Combined] {
+  JsonDecodeDecoder::{
+    decode: fn(json) {
+      match
+        (
+          (a_decoder.decode)(json),
+          (b_decoder.decode)(json),
+          (c_decoder.decode)(json),
+          (d_decoder.decode)(json),
+          (e_decoder.decode)(json),
+          (f_decoder.decode)(json),
+          (g_decoder.decode)(json),
+          (h_decoder.decode)(json),
+        ) {
+        (
+          Result::Ok(a),
+          Result::Ok(b),
+          Result::Ok(c),
+          Result::Ok(d),
+          Result::Ok(e),
+          Result::Ok(f),
+          Result::Ok(g),
+          Result::Ok(h),
+        ) => Result::Ok(combine(a, b, c, d, e, f, g, h))
+        (_, _, _, _, _, _, _, Result::Err(error))
+        | (_, _, _, _, _, _, Result::Err(error), _)
+        | (_, _, _, _, _, Result::Err(error), _, _)
+        | (_, _, _, _, Result::Err(error), _, _, _)
+        | (_, _, _, Result::Err(error), _, _, _, _)
+        | (_, _, Result::Err(error), _, _, _, _, _)
+        | (_, Result::Err(error), _, _, _, _, _, _)
+        | (Result::Err(error), _, _, _, _, _, _, _) => Result::Err(error)
+      }
+    },
+  }
+}
 """
