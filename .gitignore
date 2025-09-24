@@ -8,6 +8,9 @@ node_modules
 dist
 elm.mbt
 elmMain.js
+package-lock.json
+example-rabbit-tea-website/main.js
+example-rabbit-tea-website/main.js.map
 
 zombie
 

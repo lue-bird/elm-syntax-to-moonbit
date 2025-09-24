@@ -1,0 +1,6 @@
+{
+  "name": "example_rabbit_tea_website",
+  "deps": {
+    "Yoorkin/rabbit-tea": "0.10.10"
+  }
+}
