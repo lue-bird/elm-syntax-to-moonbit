@@ -33016,4 +33016,180 @@ pub fn[A, B, C, D, E, F, G, H, Event] virtual_dom_lazy8(
 ) -> VirtualDomNode[Event] {
   construct(a, b, c, d, e, f, g, h)
 }
+
+///|
+pub fn elm_kernel_parser_is_sub_string(
+  small_string : StringString,
+  offset_original : Int64,
+  row_original : Int64,
+  col_original : Int64,
+  big_string : StringString,
+) -> (Int64, Int64, Int64) {
+  let mut row : Int = Int64::to_int(row_original)
+  let mut col : Int = Int64::to_int(col_original)
+  let small_str : String = string_string_to_string(small_string)
+  let big_string_from_offset : StringView = string_string_to_string(big_string).view(
+    start_offset=Int64::to_int(offset_original),
+  )
+  if !big_string_from_offset.has_prefix(small_str) {
+    (-1L, row_original, col_original)
+  } else {
+    for code in big_string_from_offset {
+      if code == '\\n' {
+        row = row + 1
+        col = 1
+      } else {
+        col = col + 1
+      }
+    }
+    (
+      offset_original + Int::to_int64(small_str.length()),
+      Int::to_int64(row),
+      Int::to_int64(col),
+    )
+  }
+}
+
+///|
+pub fn elm_kernel_parser_is_sub_char(
+  predicate : (Char) -> Bool,
+  offset_original : Int64,
+  string : StringString,
+) -> Int64 {
+  match
+    String::get_char(
+      string_string_to_string(string),
+      Int64::to_int(offset_original),
+    ) {
+    Option::None => -1L
+    Option::Some(char_at_offset) =>
+      if predicate(char_at_offset) {
+        if char_at_offset == '\\n' {
+          -2L
+        } else {
+          offset_original + Int::to_int64(char_at_offset.utf16_len())
+        }
+      } else {
+        -1L
+      }
+  }
+}
+
+///|
+pub fn elm_kernel_parser_is_ascii_code(
+  code : Int64,
+  offset : Int64,
+  string : StringString,
+) -> Bool {
+  match
+    String::get_char(string_string_to_string(string), Int64::to_int(offset)) {
+    Option::None => false
+    Option::Some(char_at_offset) =>
+      Char::to_int(char_at_offset) == Int64::to_int(code)
+  }
+}
+
+///|
+pub fn elm_kernel_parser_chomp_base10(
+  offset_original : Int64,
+  string : StringString,
+) -> Int64 {
+  let mut offset : Int = Int64::to_int(offset_original)
+  let str : String = string_string_to_string(string)
+  the_loop~: for char_at_offset in str.view(start_offset=offset) {
+    if char_at_offset < '0' || char_at_offset > '9' {
+      break the_loop~
+    } else {
+      offset = offset + char_at_offset.utf16_len()
+    }
+  }
+  Int::to_int64(offset)
+}
+
+///|
+pub fn elm_kernel_parser_consume_base(
+  base : Int64,
+  offset_original : Int64,
+  string : StringString,
+) -> (Int64, Int64) {
+  let mut offset : Int = Int64::to_int(offset_original)
+  let str : String = string_string_to_string(string)
+  let mut total : Int64 = 0
+  the_loop~: for char_at_offset in str.view(start_offset=offset) {
+    let digit : Int64 = Int::to_int64(
+      Char::to_int(char_at_offset) - Char::to_int('0'),
+    )
+    if digit < 0 || digit >= base {
+      break the_loop~
+    } else {
+      total = base * total + digit
+      offset = offset + char_at_offset.utf16_len()
+    }
+  }
+  (Int::to_int64(offset), total)
+}
+
+///|
+pub fn elm_kernel_parser_consume_base16(
+  offset_original : Int64,
+  string : StringString,
+) -> (Int64, Int64) {
+  let mut offset : Int = Int64::to_int(offset_original)
+  let str : String = string_string_to_string(string)
+  let mut total : Int = 0
+  the_loop~: for char_at_offset in str.view(start_offset=offset) {
+    if char_at_offset >= '0' && char_at_offset <= '9' {
+      total = 16 * total + Char::to_int(char_at_offset) - Char::to_int('0')
+      offset = offset + char_at_offset.utf16_len()
+    } else if char_at_offset >= 'A' && char_at_offset <= 'F' {
+      total = 16 * total + 10 + Char::to_int(char_at_offset) - Char::to_int('A')
+      offset = offset + char_at_offset.utf16_len()
+    } else if char_at_offset >= 'a' && char_at_offset <= 'f' {
+      total = 16 * total + 10 + Char::to_int(char_at_offset) - Char::to_int('a')
+      offset = offset + char_at_offset.utf16_len()
+    } else {
+      break the_loop~
+    }
+  }
+  (Int::to_int64(offset), Int::to_int64(total))
+}
+
+///|
+pub fn elm_kernel_parser_find_sub_string(
+  small_string : StringString,
+  offset_original_i64 : Int64,
+  row_original : Int64,
+  col_original : Int64,
+  big_string : StringString,
+) -> (Int64, Int64, Int64) {
+  let offset_original : Int = Int64::to_int(offset_original_i64)
+  let big_str : String = string_string_to_string(big_string)
+  let small_string_cow : String = string_string_to_string(small_string)
+  match big_str.view(start_offset=offset_original).find(small_string_cow) {
+    Option::None => (-1L, row_original, col_original)
+    Option::Some(found_start_offset_from_offset) => {
+      let mut row : Int = Int64::to_int(row_original)
+      let mut col : Int = Int64::to_int(col_original)
+      let found_start_index_in_big_string : Int = offset_original +
+        found_start_offset_from_offset
+      for
+        char in big_str.view(
+          start_offset=offset_original,
+          end_offset=found_start_index_in_big_string,
+        ) {
+        if char == '\\n' {
+          col = 1
+          row = row + 1
+        } else {
+          col = col + 1
+        }
+      }
+      (
+        Int::to_int64(found_start_index_in_big_string),
+        Int::to_int64(row),
+        Int::to_int64(col),
+      )
+    }
+  }
+}
 """
