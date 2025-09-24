@@ -67,6 +67,7 @@ Please [report any issues](https://github.com/lue-bird/elm-syntax-to-moonbit/iss
 - the language is bloated
 - the language is very young and tooling like the build CLI are fragile
 - the language's promotion has made overly big claims and has the classic AI bullshit
+- the ecosystem is tiny so you will likely need to write your own FFI wrappers and similar
 
 ### how do I use the transpiled output?
 
