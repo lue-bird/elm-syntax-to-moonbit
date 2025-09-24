@@ -30595,7 +30595,7 @@ pub fn string_join(
 ///|
 pub fn string_uncons(string : StringString) -> (Char, StringString)? {
   let as_string : String = string_string_to_string(string)
-  match String::get_char(as_string, 0) {
+  match Iter::head(String::iter(as_string)) {
     Option::None => Option::None
     Option::Some(headChar) =>
       Option::Some(
@@ -31819,7 +31819,7 @@ pub(all) enum JsonDecodeError {
 
 ///|
 impl Show for JsonDecodeError with output(self, logger) {
-  logger.write_string(errorToStringHelp(self, @list.empty()))
+  logger.write_string(errorToStringHelp(self, ""))
 }
 
 ///|
@@ -31831,93 +31831,63 @@ pub(all) struct JsonDecodeDecoder[A] {
 pub fn json_decode_error_to_string(
   json_decode_error : JsonDecodeError,
 ) -> StringString {
-  StringString::One(errorToStringHelp(json_decode_error, @list.empty()))
+  StringString::One(errorToStringHelp(json_decode_error, ""))
 }
 
 ///|
 fn errorToStringHelp(
   json_decode_error : JsonDecodeError,
-  context : @list.List[String],
+  context : String,
 ) -> String {
-  // can be optimized
   match json_decode_error {
     Field(field_name, err) =>
       errorToStringHelp(
         err,
-        @list.List::prepend(
-          context,
-          json_field_description(string_string_to_string(field_name)),
-        ),
+        context + json_field_description(string_string_to_string(field_name)),
       )
-    Index(i, err) =>
-      errorToStringHelp(err, @list.List::prepend(context, "[\\{i}]"))
+    Index(i, err) => errorToStringHelp(err, context + "[\\{i}]")
     OneOf(errors) =>
       match errors {
         @list.List::Empty =>
           "Ran into a Json.Decode.oneOf with no possibilities" +
-          (if @list.List::is_empty(context) {
-            "!"
-          } else {
-            " at json" + str_join("", @list.List::rev(context))
-          })
+          (if String::is_empty(context) { "!" } else { " at json\\{context}" })
         @list.List::More(err, tail=@list.List::Empty) =>
           errorToStringHelp(err, context)
         _ =>
-          str_join(
-            "\\n\\n",
-            @list.List::prepend(
-              list_indexed_map(errorOneOf, errors),
-              (if @list.List::is_empty(context) {
-                "Json.Decode.oneOf"
-              } else {
-                "The Json.Decode.oneOf at json" +
-                str_join("", @list.List::rev(context))
-              }) +
-              " failed in the following " +
-              Int::to_string(@list.List::length(errors)) +
-              " ways:",
-            ),
+          ((if String::is_empty(context) {
+            "Json.Decode.oneOf"
+          } else {
+            "The Json.Decode.oneOf at json\\{context}"
+          }) +
+          " failed in the following \\{@list.List::length(errors)} ways:")
+          |> Iter::singleton
+          |> Iter::concat(
+            errors
+            |> @list.List::iter
+            |> Iter::mapi(fn(index, error) {
+              "\\n\\n(\\{index + 1}) " +
+              str_indent_by_4(errorToStringHelp(error, ""))
+            }),
           )
+          |> Iter::join("\\n\\n")
       }
     Failure(msg, json) =>
-      (if @list.List::is_empty(context) {
+      (if String::is_empty(context) {
         "Problem with the given value:\\n\\n"
       } else {
-        "Problem with the value at json" +
-        str_join("", @list.List::rev(context)) +
-        ":\\n\\n    "
+        "Problem with the value at json\\{context}:\\n\\n    "
       }) +
       str_indent_by_4(json_encode_encode(4, json)) +
-      "\\n\\n" +
-      string_string_to_string(msg)
+      "\\n\\n\\{string_string_to_string(msg)}"
   }
-}
-
-///|
-fn errorOneOf(index : Int64, error : JsonDecodeError) -> String {
-  "\\n\\n(\\{index + 1}) " +
-  str_indent_by_4(errorToStringHelp(error, @list.empty()))
 }
 
 ///|
 fn str_indent_by_4(string : String) -> String {
-  // can be optimized
   string
   |> String::split("\\n")
   |> Iter::map(fn(line) { "    \\{line}" })
-  |> @list.from_iter
-  |> str_join("\\n", _)
-}
-
-///|
-pub fn str_join(in_between : String, strings : @list.List[String]) -> String {
-  match strings {
-    @list.List::Empty => ""
-    @list.List::More(head_string, tail=tail_strings) =>
-      @list.List::fold(tail_strings, init=head_string, fn(so_far, element) {
-        so_far + in_between + element
-      })
-  }
+  |> Iter::join("\\n")
 }
 
 ///|
@@ -32342,8 +32312,8 @@ pub fn[A] json_decode_field(
 fn json_field_description(field_name : String) -> String {
   if (field_name
     |> String::iter()
-    |> Iter::take(1)
-    |> Iter::all(Char::is_ascii_alphabetic)) &&
+    |> Iter::head
+    |> Option::map_or(false, Char::is_ascii_alphabetic)) &&
     (field_name
     |> String::iter()
     |> Iter::drop(1)
@@ -32442,10 +32412,10 @@ pub fn[A] json_decode_one_of(
 ///|
 pub fn[A, B] json_decode_map(
   value_change : (A) -> B,
-  a_decoder : JsonDecodeDecoder[A],
+  decoder : JsonDecodeDecoder[A],
 ) -> JsonDecodeDecoder[B] {
   JsonDecodeDecoder::{
-    decode: fn(json) { result_map(value_change, (a_decoder.decode)(json)) },
+    decode: fn(json) { result_map(value_change, (decoder.decode)(json)) },
   }
 }
 
