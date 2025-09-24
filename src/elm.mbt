@@ -94,6 +94,18 @@ pub fn basics_not(bool : Bool) -> Bool {
 }
 
 ///|
+#inline
+pub fn basics_and(a : Bool, b : Bool) -> Bool {
+  a && b
+}
+
+///|
+#inline
+pub fn basics_or(a : Bool, b : Bool) -> Bool {
+  a || b
+}
+
+///|
 pub(all) enum BasicsOrder {
   LT
   EQ
@@ -3314,4 +3326,394 @@ pub fn[A, B, C, D, E, F, G, H, Combined] json_decode_map8(
       }
     },
   }
+}
+
+///|
+fn str_remove_whitespace_and_ascii_lowercase(str : String) -> String {
+  str
+  |> String::iter()
+  |> Iter::filter(char => !char.is_whitespace())
+  |> Iter::map(char => char.to_ascii_lowercase())
+  |> String::from_iter
+}
+
+///|
+pub fn virtual_dom_no_java_script_uri(uri : StringString) -> StringString {
+  if str_remove_whitespace_and_ascii_lowercase(string_string_to_string(uri)).contains(
+      "javascript",
+    ) {
+    string_empty
+  } else {
+    uri
+  }
+}
+
+///|
+pub fn virtual_dom_no_java_script_or_html_uri(
+  uri : StringString,
+) -> StringString {
+  let uri_normal : String = str_remove_whitespace_and_ascii_lowercase(
+    string_string_to_string(uri),
+  )
+  if uri_normal.contains("javascript") || uri_normal.contains("data:text/html") {
+    string_empty
+  } else {
+    uri
+  }
+}
+
+///|
+pub struct GeneratedMessagePreventDefaultStopPropagation[Message, PreventDefault, StopPropagation] {
+  message : Message
+  prevent_default : PreventDefault
+  stop_propagation : StopPropagation
+} derive(Eq, Show)
+
+///|
+pub typealias GeneratedMessagePreventDefaultStopPropagation[Event, Bool, Bool] as VirtualDomCustomHandledEvent[Event]
+
+///|
+pub enum VirtualDomHandler[Event] {
+  Normal(JsonDecodeDecoder[Event])
+  MayStopPropagation(JsonDecodeDecoder[(Event, Bool)])
+  MayPreventDefault(JsonDecodeDecoder[(Event, Bool)])
+  Custom(JsonDecodeDecoder[VirtualDomCustomHandledEvent[Event]])
+}
+
+///|
+pub enum VirtualDomAttribute[Event] {
+  ModifierAttribute(namespace_~ : String?, key~ : String, value~ : String)
+  ModifierStyle(key~ : String, value~ : String)
+  ModifierProperty(key~ : String, value~ : Json)
+  ModifierEventListener(name~ : String, handler~ : VirtualDomHandler[Event])
+}
+
+///|
+pub enum VirtualDomNode[Event] {
+  Text(String)
+  Element(
+    tag~ : String,
+    namespace_~ : String?,
+    subs~ : @list.List[VirtualDomNode[Event]],
+    modifiers~ : @list.List[VirtualDomAttribute[Event]]
+  )
+  ElementKeyed(
+    tag~ : String,
+    namespace_~ : String?,
+    subs~ : @list.List[(String, VirtualDomNode[Event])],
+    modifiers~ : @list.List[VirtualDomAttribute[Event]]
+  )
+}
+
+///|
+pub fn[Event] virtual_dom_text(string : StringString) -> VirtualDomNode[Event] {
+  VirtualDomNode::Text(string_string_to_string(string))
+}
+
+///|
+pub fn[Event] virtual_dom_node(
+  tag : StringString,
+  modifiers : @list.List[VirtualDomAttribute[Event]],
+  subs : @list.List[VirtualDomNode[Event]],
+) -> VirtualDomNode[Event] {
+  VirtualDomNode::Element(
+    tag=string_string_to_string(tag),
+    namespace_=Option::None,
+    subs~,
+    modifiers~,
+  )
+}
+
+///|
+pub fn[Event] virtual_dom_node_ns(
+  namespace_ : StringString,
+  tag : StringString,
+  modifiers : @list.List[VirtualDomAttribute[Event]],
+  subs : @list.List[VirtualDomNode[Event]],
+) -> VirtualDomNode[Event] {
+  VirtualDomNode::Element(
+    tag=string_string_to_string(tag),
+    namespace_=Option::Some(string_string_to_string(namespace_)),
+    subs~,
+    modifiers~,
+  )
+}
+
+///|
+pub fn[Event] virtual_dom_keyed_node(
+  tag : StringString,
+  modifiers : @list.List[VirtualDomAttribute[Event]],
+  subs : @list.List[(StringString, VirtualDomNode[Event])],
+) -> VirtualDomNode[Event] {
+  VirtualDomNode::ElementKeyed(
+    tag=string_string_to_string(tag),
+    namespace_=Option::None,
+    subs=subs
+      |> @list.List::map(fn(keyed_node) {
+        let (key, node) = keyed_node
+        (string_string_to_string(key), node)
+      }),
+    modifiers~,
+  )
+}
+
+///|
+pub fn[Event] virtual_dom_keyed_node_ns(
+  namespace_ : StringString,
+  tag : StringString,
+  modifiers : @list.List[VirtualDomAttribute[Event]],
+  subs : @list.List[(StringString, VirtualDomNode[Event])],
+) -> VirtualDomNode[Event] {
+  VirtualDomNode::ElementKeyed(
+    tag=string_string_to_string(tag),
+    namespace_=Option::Some(string_string_to_string(namespace_)),
+    subs=subs
+      |> @list.List::map(fn(keyed_node) {
+        let (key, node) = keyed_node
+        (string_string_to_string(key), node)
+      }),
+    modifiers~,
+  )
+}
+
+///|
+pub fn[Event] virtual_dom_style(
+  key : StringString,
+  value : StringString,
+) -> VirtualDomAttribute[Event] {
+  VirtualDomAttribute::ModifierStyle(
+    key=string_string_to_string(key),
+    value=string_string_to_string(value),
+  )
+}
+
+///|
+pub fn[Event] virtual_dom_property(
+  key : StringString,
+  value : Json,
+) -> VirtualDomAttribute[Event] {
+  VirtualDomAttribute::ModifierProperty(
+    key=string_string_to_string(key),
+    value~,
+  )
+}
+
+///|
+pub fn[Event] virtual_dom_attribute(
+  key : StringString,
+  value : StringString,
+) -> VirtualDomAttribute[Event] {
+  VirtualDomAttribute::ModifierAttribute(
+    namespace_=Option::None,
+    key=string_string_to_string(key),
+    value=string_string_to_string(value),
+  )
+}
+
+///|
+pub fn[Event] virtual_dom_attribute_ns(
+  namespace_ : StringString,
+  key : StringString,
+  value : StringString,
+) -> VirtualDomAttribute[Event] {
+  VirtualDomAttribute::ModifierAttribute(
+    namespace_=Option::Some(string_string_to_string(namespace_)),
+    key=string_string_to_string(key),
+    value=string_string_to_string(value),
+  )
+}
+
+///|
+pub fn[Event] virtual_dom_on(
+  name : StringString,
+  handler : VirtualDomHandler[Event],
+) -> VirtualDomAttribute[Event] {
+  VirtualDomAttribute::ModifierEventListener(
+    name=string_string_to_string(name),
+    handler~,
+  )
+}
+
+///|
+pub fn[Event, EventMapped] virtual_dom_map_attribute(
+  event_change : (Event) -> EventMapped,
+  modifier : VirtualDomAttribute[Event],
+) -> VirtualDomAttribute[EventMapped] {
+  match modifier {
+    VirtualDomAttribute::ModifierAttribute(namespace_~, key~, value~) =>
+      VirtualDomAttribute::ModifierAttribute(namespace_~, key~, value~)
+    VirtualDomAttribute::ModifierStyle(key~, value~) =>
+      VirtualDomAttribute::ModifierStyle(key~, value~)
+    VirtualDomAttribute::ModifierProperty(key~, value~) =>
+      VirtualDomAttribute::ModifierProperty(key~, value~)
+    VirtualDomAttribute::ModifierEventListener(name~, handler~) =>
+      VirtualDomAttribute::ModifierEventListener(
+        name~,
+        handler=virtual_dom_handler_map(event_change, handler),
+      )
+  }
+}
+
+///|
+pub fn[Event, EventMapped] virtual_dom_handler_map(
+  event_change : (Event) -> EventMapped,
+  handler : VirtualDomHandler[Event],
+) -> VirtualDomHandler[EventMapped] {
+  match handler {
+    VirtualDomHandler::Normal(decoder) =>
+      VirtualDomHandler::Normal(json_decode_map(event_change, decoder))
+    VirtualDomHandler::MayStopPropagation(decoder) =>
+      VirtualDomHandler::MayStopPropagation(
+        json_decode_map(
+          (decoded : (Event, Bool)) => (event_change(decoded.0), decoded.1),
+          decoder,
+        ),
+      )
+    VirtualDomHandler::MayPreventDefault(decoder) =>
+      VirtualDomHandler::MayPreventDefault(
+        json_decode_map(
+          (decoded : (Event, Bool)) => (event_change(decoded.0), decoded.1),
+          decoder,
+        ),
+      )
+    VirtualDomHandler::Custom(decoder) =>
+      VirtualDomHandler::Custom(
+        json_decode_map(
+          fn(custom : VirtualDomCustomHandledEvent[Event]) {
+            GeneratedMessagePreventDefaultStopPropagation::{
+              message: event_change(custom.message),
+              prevent_default: custom.prevent_default,
+              stop_propagation: custom.stop_propagation,
+            }
+          },
+          decoder,
+        ),
+      )
+  }
+}
+
+///|
+pub fn[Event, EventMapped] virtual_dom_map(
+  event_change : (Event) -> EventMapped,
+  node : VirtualDomNode[Event],
+) -> VirtualDomNode[EventMapped] {
+  match node {
+    VirtualDomNode::Text(text) => VirtualDomNode::Text(text)
+    VirtualDomNode::Element(tag~, namespace_~, subs~, modifiers~) =>
+      VirtualDomNode::Element(
+        tag~,
+        namespace_~,
+        subs=subs |> @list.List::map(sub => virtual_dom_map(event_change, sub)),
+        modifiers=modifiers
+          |> @list.List::map(fn(modifier) {
+            virtual_dom_map_attribute(event_change, modifier)
+          }),
+      )
+    VirtualDomNode::ElementKeyed(tag~, namespace_~, subs~, modifiers~) =>
+      VirtualDomNode::ElementKeyed(
+        tag~,
+        namespace_~,
+        subs=subs
+          |> @list.List::map(fn(keyed_sub) {
+            let (key, sub) = keyed_sub
+            (key, virtual_dom_map(event_change, sub))
+          }),
+        modifiers=modifiers
+          |> @list.List::map(fn(modifier) {
+            virtual_dom_map_attribute(event_change, modifier)
+          }),
+      )
+  }
+}
+
+///|
+pub fn[A, Event] virtual_dom_lazy(
+  construct : (A) -> VirtualDomNode[Event],
+  a : A,
+) -> VirtualDomNode[Event] {
+  construct(a)
+}
+
+///|
+pub fn[A, B, Event] virtual_dom_lazy2(
+  construct : (A, B) -> VirtualDomNode[Event],
+  a : A,
+  b : B,
+) -> VirtualDomNode[Event] {
+  construct(a, b)
+}
+
+///|
+pub fn[A, B, C, Event] virtual_dom_lazy3(
+  construct : (A, B, C) -> VirtualDomNode[Event],
+  a : A,
+  b : B,
+  c : C,
+) -> VirtualDomNode[Event] {
+  construct(a, b, c)
+}
+
+///|
+pub fn[A, B, C, D, Event] virtual_dom_lazy4(
+  construct : (A, B, C, D) -> VirtualDomNode[Event],
+  a : A,
+  b : B,
+  c : C,
+  d : D,
+) -> VirtualDomNode[Event] {
+  construct(a, b, c, d)
+}
+
+///|
+pub fn[A, B, C, D, E, Event] virtual_dom_lazy5(
+  construct : (A, B, C, D, E) -> VirtualDomNode[Event],
+  a : A,
+  b : B,
+  c : C,
+  d : D,
+  e : E,
+) -> VirtualDomNode[Event] {
+  construct(a, b, c, d, e)
+}
+
+///|
+pub fn[A, B, C, D, E, F, Event] virtual_dom_lazy6(
+  construct : (A, B, C, D, E, F) -> VirtualDomNode[Event],
+  a : A,
+  b : B,
+  c : C,
+  d : D,
+  e : E,
+  f : F,
+) -> VirtualDomNode[Event] {
+  construct(a, b, c, d, e, f)
+}
+
+///|
+pub fn[A, B, C, D, E, F, G, Event] virtual_dom_lazy7(
+  construct : (A, B, C, D, E, F, G) -> VirtualDomNode[Event],
+  a : A,
+  b : B,
+  c : C,
+  d : D,
+  e : E,
+  f : F,
+  g : G,
+) -> VirtualDomNode[Event] {
+  construct(a, b, c, d, e, f, g)
+}
+
+///|
+pub fn[A, B, C, D, E, F, G, H, Event] virtual_dom_lazy8(
+  construct : (A, B, C, D, E, F, G, H) -> VirtualDomNode[Event],
+  a : A,
+  b : B,
+  c : C,
+  d : D,
+  e : E,
+  f : F,
+  g : G,
+  h : H,
+) -> VirtualDomNode[Event] {
+  construct(a, b, c, d, e, f, g, h)
 }
