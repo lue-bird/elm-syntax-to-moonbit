@@ -542,7 +542,12 @@ choiceTypeDeclaration context syntaxChoiceType =
                                 (variantValues
                                     |> List.map
                                         (\value ->
-                                            value |> type_ context
+                                            value
+                                                |> type_
+                                                    { moonbitEnumTypes = context.moonbitEnumTypes
+                                                    , typeAliasesInModule = context.typeAliasesInModule
+                                                    , isPartOfTypeDeclaration = True
+                                                    }
                                         )
                                 )
                     )
@@ -879,7 +884,11 @@ typeAliasDeclaration context inferredTypeAlias =
         aliasedAsMoonbitType =
             inferredTypeAlias.type_
                 |> inferredTypeExpandInnerAliases context.typeAliasesInModule
-                |> type_ context
+                |> type_
+                    { moonbitEnumTypes = context.moonbitEnumTypes
+                    , typeAliasesInModule = context.typeAliasesInModule
+                    , isPartOfTypeDeclaration = True
+                    }
     in
     { parameters =
         inferredTypeAlias.parameters
@@ -933,20 +942,42 @@ type_ :
             , isEq : Bool
             , variantReferencedValueIndexes : FastDict.Dict String (List Int)
             }
+    , isPartOfTypeDeclaration : Bool
     }
     -> ElmSyntaxTypeInfer.Type
     -> MoonbitType
 type_ context inferredType =
     case inferredType of
         ElmSyntaxTypeInfer.TypeVariable variable ->
-            MoonbitTypeVariable
-                (variable.name
-                    |> toPascalCaseMoonbitName
-                )
+            if
+                Basics.not context.isPartOfTypeDeclaration
+                    && (variable.name |> String.startsWith "number")
+            then
+                -- fall back to Double if number- type variable is found outside of type declarations.
+                -- This will ony happen in some let value/function declarations because this transpiler
+                -- currently does not try to specialize let value/function declarations
+                moonbitTypeDouble
+
+            else
+                MoonbitTypeVariable
+                    (variable.name
+                        |> toPascalCaseMoonbitName
+                    )
 
         ElmSyntaxTypeInfer.TypeNotVariable inferredTypeNotVariable ->
             typeNotVariable context
                 inferredTypeNotVariable
+
+
+moonbitTypeDouble : MoonbitType
+moonbitTypeDouble =
+    MoonbitTypeConstruct
+        { qualification = []
+        , name = "Double"
+        , arguments = []
+        , isEq = True
+        , isShow = True
+        }
 
 
 typeNotVariable :
@@ -968,6 +999,7 @@ typeNotVariable :
             , isEq : Bool
             , variantReferencedValueIndexes : FastDict.Dict String (List Int)
             }
+    , isPartOfTypeDeclaration : Bool
     }
     -> ElmSyntaxTypeInfer.TypeNotVariable
     -> MoonbitType
@@ -2048,7 +2080,13 @@ pattern context patternInferred =
             { pattern =
                 MoonbitPatternVariable
                     { name = variableName |> toSnakeCaseMoonbitName
-                    , type_ = patternInferred.type_ |> type_ context
+                    , type_ =
+                        patternInferred.type_
+                            |> type_
+                                { moonbitEnumTypes = context.moonbitEnumTypes
+                                , typeAliasesInModule = context.typeAliasesInModule
+                                , isPartOfTypeDeclaration = False
+                                }
                     }
             , guardConditions = []
             }
@@ -2164,7 +2202,12 @@ pattern context patternInferred =
                                                             MoonbitTypeInfer
 
                                                         Just inferredType ->
-                                                            inferredType |> type_ context
+                                                            inferredType
+                                                                |> type_
+                                                                    { moonbitEnumTypes = context.moonbitEnumTypes
+                                                                    , typeAliasesInModule = context.typeAliasesInModule
+                                                                    , isPartOfTypeDeclaration = False
+                                                                    }
                                                 }
                                             )
                                 )
@@ -2305,7 +2348,12 @@ pattern context patternInferred =
 
                 moonbitType : MoonbitType
                 moonbitType =
-                    patternAs.variable.type_ |> type_ context
+                    patternAs.variable.type_
+                        |> type_
+                            { moonbitEnumTypes = context.moonbitEnumTypes
+                            , typeAliasesInModule = context.typeAliasesInModule
+                            , isPartOfTypeDeclaration = False
+                            }
 
                 moonbitPattern :
                     { pattern : MoonbitPattern
@@ -7078,6 +7126,7 @@ valueOrFunctionDeclaration context syntaxDeclarationValueOrFunction =
                                 |> type_
                                     { typeAliasesInModule = typeAliasesInModule
                                     , moonbitEnumTypes = context.moonbitEnumTypes
+                                    , isPartOfTypeDeclaration = False
                                     }
                                 |> moonbitTypeUnnestFn
                         }
@@ -7109,6 +7158,7 @@ valueOrFunctionDeclaration context syntaxDeclarationValueOrFunction =
                                     |> type_
                                         { typeAliasesInModule = typeAliasesInModule
                                         , moonbitEnumTypes = context.moonbitEnumTypes
+                                        , isPartOfTypeDeclaration = False
                                         }
                              }
                                 |> moonbitParameterUnnestFn
@@ -7150,6 +7200,7 @@ valueOrFunctionDeclaration context syntaxDeclarationValueOrFunction =
                         |> type_
                             { typeAliasesInModule = typeAliasesInModule
                             , moonbitEnumTypes = context.moonbitEnumTypes
+                            , isPartOfTypeDeclaration = False
                             }
             in
             if
@@ -7205,6 +7256,7 @@ valueOrFunctionDeclaration context syntaxDeclarationValueOrFunction =
                         |> type_
                             { typeAliasesInModule = typeAliasesInModule
                             , moonbitEnumTypes = context.moonbitEnumTypes
+                            , isPartOfTypeDeclaration = False
                             }
                 , result =
                     resultWithAdditionalGeneratedArgumentsApplied
@@ -7753,6 +7805,7 @@ expression context expressionTypedNode =
                                 |> type_
                                     { typeAliasesInModule = typeAliasesInModule
                                     , moonbitEnumTypes = context.moonbitEnumTypes
+                                    , isPartOfTypeDeclaration = False
                                     }
                     in
                     Ok
@@ -7805,6 +7858,7 @@ expression context expressionTypedNode =
                                         |> type_
                                             { typeAliasesInModule = typeAliasesInModule
                                             , moonbitEnumTypes = context.moonbitEnumTypes
+                                            , isPartOfTypeDeclaration = False
                                             }
 
                                 rightMoonbitType : MoonbitType
@@ -7813,6 +7867,7 @@ expression context expressionTypedNode =
                                         |> type_
                                             { typeAliasesInModule = typeAliasesInModule
                                             , moonbitEnumTypes = context.moonbitEnumTypes
+                                            , isPartOfTypeDeclaration = False
                                             }
                             in
                             moonbitExpressionClosureReduced
@@ -7986,6 +8041,7 @@ expression context expressionTypedNode =
                                                                                         |> type_
                                                                                             { typeAliasesInModule = typeAliasesInModule
                                                                                             , moonbitEnumTypes = context.moonbitEnumTypes
+                                                                                            , isPartOfTypeDeclaration = False
                                                                                             }
 
                                                                                 unnestParameterName : String
@@ -8384,6 +8440,7 @@ expression context expressionTypedNode =
                                                             |> type_
                                                                 { typeAliasesInModule = typeAliasesInModule
                                                                 , moonbitEnumTypes = context.moonbitEnumTypes
+                                                                , isPartOfTypeDeclaration = False
                                                                 }
                                                         )
                                               }
@@ -8482,6 +8539,7 @@ expression context expressionTypedNode =
                                                             |> type_
                                                                 { typeAliasesInModule = typeAliasesInModule
                                                                 , moonbitEnumTypes = context.moonbitEnumTypes
+                                                                , isPartOfTypeDeclaration = False
                                                                 }
                                                         )
                                               }
@@ -8573,6 +8631,7 @@ expression context expressionTypedNode =
                                                                     |> type_
                                                                         { typeAliasesInModule = typeAliasesInModule
                                                                         , moonbitEnumTypes = context.moonbitEnumTypes
+                                                                        , isPartOfTypeDeclaration = False
                                                                         }
                                                             }
                                                         )
@@ -8645,6 +8704,7 @@ expression context expressionTypedNode =
                                                                         |> type_
                                                                             { typeAliasesInModule = typeAliasesInModule
                                                                             , moonbitEnumTypes = context.moonbitEnumTypes
+                                                                            , isPartOfTypeDeclaration = False
                                                                             }
                                                                     )
                                                           }
@@ -8721,6 +8781,7 @@ expression context expressionTypedNode =
                                                                     |> FastDict.get moduleName
                                                                     |> Maybe.map .typeAliases
                                                         , moonbitEnumTypes = context.moonbitEnumTypes
+                                                        , isPartOfTypeDeclaration = False
                                                         }
                                                     |> Just
 
@@ -9214,6 +9275,7 @@ expression context expressionTypedNode =
                                                 |> type_
                                                     { typeAliasesInModule = typeAliasesInModule
                                                     , moonbitEnumTypes = context.moonbitEnumTypes
+                                                    , isPartOfTypeDeclaration = False
                                                     }
                                         , pattern = moonbitParameter.pattern
                                         }
@@ -9544,6 +9606,7 @@ moonbitExpressionReferenceDeclaredFnAppliedLazilyOrCurriedIfNecessary context mo
                     |> type_
                         { typeAliasesInModule = typeAliasesInModule
                         , moonbitEnumTypes = context.moonbitEnumTypes
+                        , isPartOfTypeDeclaration = False
                         }
         in
         if resultMoonbitType |> moonbitTypeIsConcrete then
@@ -9582,6 +9645,7 @@ moonbitExpressionReferenceDeclaredFnAppliedLazilyOrCurriedIfNecessary context mo
                                 |> type_
                                     { typeAliasesInModule = typeAliasesInModule
                                     , moonbitEnumTypes = context.moonbitEnumTypes
+                                    , isPartOfTypeDeclaration = False
                                     }
                     in
                     moonbitExpressionClosureReduced
@@ -11601,6 +11665,7 @@ letValueOrFunctionDeclaration context inferredLetDeclarationValueOrFunctionNode 
                                 |> type_
                                     { typeAliasesInModule = typeAliasesInModule
                                     , moonbitEnumTypes = context.moonbitEnumTypes
+                                    , isPartOfTypeDeclaration = False
                                     }
                             )
                     , result = result
@@ -11643,6 +11708,7 @@ letValueOrFunctionDeclaration context inferredLetDeclarationValueOrFunctionNode 
                                     |> type_
                                         { typeAliasesInModule = typeAliasesInModule
                                         , moonbitEnumTypes = context.moonbitEnumTypes
+                                        , isPartOfTypeDeclaration = False
                                         }
                             }
                         )
@@ -11673,6 +11739,7 @@ letValueOrFunctionDeclaration context inferredLetDeclarationValueOrFunctionNode 
                                         |> type_
                                             { typeAliasesInModule = typeAliasesInModule
                                             , moonbitEnumTypes = context.moonbitEnumTypes
+                                            , isPartOfTypeDeclaration = False
                                             }
                                  }
                                     |> moonbitParameterUnnestFn
@@ -11730,6 +11797,7 @@ letValueOrFunctionDeclaration context inferredLetDeclarationValueOrFunctionNode 
                             |> type_
                                 { typeAliasesInModule = typeAliasesInModule
                                 , moonbitEnumTypes = context.moonbitEnumTypes
+                                , isPartOfTypeDeclaration = False
                                 }
                 in
                 MoonbitStatementFnDeclaration
