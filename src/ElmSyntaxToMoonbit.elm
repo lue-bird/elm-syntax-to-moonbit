@@ -31900,8 +31900,8 @@ pub fn time_utc() -> TimeZone {
 }
 
 ///|
-pub fn json_encode_encode(indent_size : Int64, json : Json) -> String {
-  Json::stringify(json, indent=Int64::to_int(indent_size))
+pub fn json_encode_encode(indent_size : Int64, json : Json) -> StringString {
+  StringString::One(Json::stringify(json, indent=Int64::to_int(indent_size)))
 }
 
 ///|
@@ -31961,7 +31961,7 @@ pub fn[A] json_encode_set(
 
 ///|
 pub fn[K, V] json_encode_dict(
-  key_to_string : (K) -> String,
+  key_to_string : (K) -> StringString,
   value_to_json : (V) -> Json,
   dict : @immut/sorted_map.SortedMap[K, V],
 ) -> Json {
@@ -31974,7 +31974,7 @@ pub fn[K, V] json_encode_dict(
 }
 
 ///|
-pub fn json_encode_object(fields : @list.List[(String, Json)]) -> Json {
+pub fn json_encode_object(fields : @list.List[(StringString, Json)]) -> Json {
   Json::object(fields |> @list.List::iter() |> Map::from_iter)
 }
 
@@ -31988,7 +31988,7 @@ pub(all) enum JsonDecodeError {
 
 ///|
 impl Show for JsonDecodeError with output(self, logger) {
-  logger.write_string(errorToStringHelp(self, ""))
+  logger.write_string(json_decode_error_to_string_help(self, ""))
 }
 
 ///|
@@ -32000,28 +32000,28 @@ pub(all) struct JsonDecodeDecoder[A] {
 pub fn json_decode_error_to_string(
   json_decode_error : JsonDecodeError,
 ) -> StringString {
-  StringString::One(errorToStringHelp(json_decode_error, ""))
+  StringString::One(json_decode_error_to_string_help(json_decode_error, ""))
 }
 
 ///|
-fn errorToStringHelp(
+fn json_decode_error_to_string_help(
   json_decode_error : JsonDecodeError,
   context : String,
 ) -> String {
   match json_decode_error {
     Field(field_name, err) =>
-      errorToStringHelp(
+      json_decode_error_to_string_help(
         err,
         context + json_field_description(string_string_to_string(field_name)),
       )
-    Index(i, err) => errorToStringHelp(err, context + "[\\{i}]")
+    Index(i, err) => json_decode_error_to_string_help(err, context + "[\\{i}]")
     OneOf(errors) =>
       match errors {
         @list.List::Empty =>
           "Ran into a Json.Decode.oneOf with no possibilities" +
           (if String::is_empty(context) { "!" } else { " at json\\{context}" })
         @list.List::More(err, tail=@list.List::Empty) =>
-          errorToStringHelp(err, context)
+          json_decode_error_to_string_help(err, context)
         _ =>
           ((if String::is_empty(context) {
             "Json.Decode.oneOf"
@@ -32035,7 +32035,7 @@ fn errorToStringHelp(
             |> @list.List::iter
             |> Iter::mapi(fn(index, error) {
               "\\n\\n(\\{index + 1}) " +
-              str_indent_by_4(errorToStringHelp(error, ""))
+              str_indent_by_4(json_decode_error_to_string_help(error, ""))
             }),
           )
           |> Iter::join("\\n\\n")
@@ -32046,7 +32046,7 @@ fn errorToStringHelp(
       } else {
         "Problem with the value at json\\{context}:\\n\\n    "
       }) +
-      str_indent_by_4(json_encode_encode(4, json)) +
+      str_indent_by_4(Json::stringify(json, indent=4)) +
       "\\n\\n\\{string_string_to_string(msg)}"
   }
 }
@@ -32070,14 +32070,15 @@ pub fn[A] json_decode_decode_value(
 ///|
 pub fn[A] json_decode_decode_string(
   decoder : JsonDecodeDecoder[A],
-  json_string : String,
+  json_string : StringString,
 ) -> ResultResult[JsonDecodeError, A] {
-  (decoder.decode)(@json.parse(json_string)) catch {
+  let json_str : String = string_string_to_string(json_string)
+  (decoder.decode)(@json.parse(json_str)) catch {
     json_parse_error =>
       Result::Err(
         JsonDecodeError::Failure(
           StringString::One(@json.ParseError::to_string(json_parse_error)),
-          Json::string(json_string),
+          Json::string(json_str),
         ),
       )
   }
@@ -32330,7 +32331,7 @@ pub fn[A, Combined] json_decode_one_or_more(
 ///|
 pub fn[V] json_decode_dict(
   element_decoder : JsonDecodeDecoder[V],
-) -> JsonDecodeDecoder[@immut/sorted_map.SortedMap[String, V]] {
+) -> JsonDecodeDecoder[@immut/sorted_map.SortedMap[StringString, V]] {
   JsonDecodeDecoder::{
     decode: fn(json) {
       match json.as_object() {
@@ -32342,12 +32343,14 @@ pub fn[V] json_decode_dict(
             ),
           )
         Option::Some(json_fields) => {
-          let mut decoded : @immut/sorted_map.SortedMap[String, V] = @immut/sorted_map.new()
+          let mut decoded : @immut/sorted_map.SortedMap[StringString, V] = @immut/sorted_map.new()
           for key, element_json in json_fields {
             match (element_decoder.decode)(element_json) {
               Result::Ok(decoded_value) =>
                 decoded = @immut/sorted_map.SortedMap::add(
-                  decoded, key, decoded_value,
+                  decoded,
+                  StringString::One(key),
+                  decoded_value,
                 )
               Result::Err(element_decode_error) =>
                 return Result::Err(
@@ -32369,7 +32372,7 @@ pub fn[V] json_decode_dict(
 ///|
 pub fn[V] json_decode_key_value_pairs(
   element_decoder : JsonDecodeDecoder[V],
-) -> JsonDecodeDecoder[@list.List[(String, V)]] {
+) -> JsonDecodeDecoder[@list.List[(StringString, V)]] {
   JsonDecodeDecoder::{
     decode: fn(json) {
       match json.as_object() {
@@ -32381,11 +32384,11 @@ pub fn[V] json_decode_key_value_pairs(
             ),
           )
         Option::Some(json_fields) => {
-          let decoded : Array[(String, V)] = Array::new()
+          let decoded : Array[(StringString, V)] = Array::new()
           for key, element_json in json_fields {
             match (element_decoder.decode)(element_json) {
               Result::Ok(decoded_value) =>
-                Array::push(decoded, (key, decoded_value))
+                Array::push(decoded, (StringString::One(key), decoded_value))
               Result::Err(element_decode_error) =>
                 return Result::Err(
                   JsonDecodeError::Field(
@@ -32509,11 +32512,9 @@ pub fn[A] json_decode_succeed(result : A) -> JsonDecodeDecoder[A] {
 }
 
 ///|
-pub fn[A] json_decode_fail(message : String) -> JsonDecodeDecoder[A] {
+pub fn[A] json_decode_fail(message : StringString) -> JsonDecodeDecoder[A] {
   JsonDecodeDecoder::{
-    decode: fn(json) {
-      Result::Err(JsonDecodeError::Failure(StringString::One(message), json))
-    },
+    decode: fn(json) { Result::Err(JsonDecodeError::Failure(message, json)) },
   }
 }
 
