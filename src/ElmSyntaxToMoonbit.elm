@@ -66,7 +66,7 @@ type MoonbitPattern
     | MoonbitPatternChar Char
     | MoonbitPatternString String
     | MoonbitPatternVariable String
-    | MoonbitPatternAlias
+    | MoonbitPatternAs
         { variable : String
         , pattern : MoonbitPattern
         }
@@ -2322,7 +2322,7 @@ pattern context patternInferred =
                     patternAs.pattern |> pattern context
             in
             { pattern =
-                MoonbitPatternAlias
+                MoonbitPatternAs
                     { variable = dereferencedAliasBindingName
                     , pattern = moonbitPattern.pattern
                     }
@@ -4962,8 +4962,8 @@ printMoonbitPattern moonbitPattern =
         MoonbitPatternVariable variable ->
             Print.exactly variable
 
-        MoonbitPatternAlias moonbitPatternAlias ->
-            printMoonbitPatternAlias moonbitPatternAlias
+        MoonbitPatternAs moonbitPatternAs ->
+            printMoonbitPatternAs moonbitPatternAs
 
         MoonbitPatternStructNotExhaustive moonbitPatternStructNotExhaustive ->
             printMoonbitPatternStructNotExhaustive moonbitPatternStructNotExhaustive
@@ -4980,26 +4980,26 @@ printMoonbitPatternInteger int64 =
     Print.exactly (int64Literal int64)
 
 
-printMoonbitPatternAlias :
+printMoonbitPatternAs :
     { pattern : MoonbitPattern
     , variable : String
     }
     -> Print
-printMoonbitPatternAlias moonbitPatternAlias =
+printMoonbitPatternAs moonbitPatternAs =
     let
         patternPrint : Print
         patternPrint =
-            moonbitPatternAlias.pattern |> printMoonbitPattern
+            moonbitPatternAs.pattern |> printMoonbitPattern
     in
-    Print.exactly
-        (moonbitPatternAlias.variable
-            ++ " @"
-        )
+    patternPrint
         |> Print.followedBy
             (Print.withIndentAtNextMultipleOf4
-                (Print.spaceOrLinebreakIndented (patternPrint |> Print.lineSpread)
+                (Print.spaceOrLinebreakIndented
+                    (patternPrint |> Print.lineSpread)
                     |> Print.followedBy
-                        patternPrint
+                        (Print.exactly
+                            ("as " ++ moonbitPatternAs.variable)
+                        )
                 )
             )
 
@@ -12031,9 +12031,9 @@ moonbitPatternDirectlyCapturingBindings moonbitPattern =
         MoonbitPatternVariable binding ->
             FastSet.singleton binding
 
-        MoonbitPatternAlias patternAlias ->
-            FastSet.insert patternAlias.variable
-                (moonbitPatternDirectlyCapturingBindings patternAlias.pattern)
+        MoonbitPatternAs patternAs ->
+            FastSet.insert patternAs.variable
+                (moonbitPatternDirectlyCapturingBindings patternAs.pattern)
 
 
 rangeIncludesRange : Elm.Syntax.Range.Range -> Elm.Syntax.Range.Range -> Bool
