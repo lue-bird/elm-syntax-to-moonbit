@@ -15707,7 +15707,7 @@ printMoonbitExpressionIfElse syntaxIfElse =
     let
         conditionPrint : Print
         conditionPrint =
-            printMoonbitExpressionNotParenthesizedCurlyEmbracedIfAfterStatement
+            printMoonbitExpressionParenthesizedIfSpaceSeparated
                 syntaxIfElse.condition
 
         conditionLineSpread : Print.LineSpread
@@ -15721,9 +15721,7 @@ printMoonbitExpressionIfElse syntaxIfElse =
                     |> Print.followedBy conditionPrint
                 )
             )
-        |> Print.followedBy
-            (Print.spaceOrLinebreakIndented conditionLineSpread)
-        |> Print.followedBy printExactlyCurlyOpening
+        |> Print.followedBy (Print.exactly " {")
         |> Print.followedBy
             (Print.withIndentAtNextMultipleOf4
                 (Print.linebreakIndented
