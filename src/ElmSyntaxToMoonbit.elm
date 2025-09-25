@@ -6081,6 +6081,7 @@ modules syntaxDeclarationsIncludingOverwrittenOnes =
                             , isEq : Bool
                             , variantReferencedValueIndexes : FastDict.Dict String (List Int)
                             }
+                    , moonbitLets : FastSet.Set String
                     , declarations :
                         { fns :
                             List
@@ -6467,6 +6468,7 @@ modules syntaxDeclarationsIncludingOverwrittenOnes =
                                                             |> valueOrFunctionDeclaration
                                                                 { moduleInfo = moduleInfo
                                                                 , moonbitEnumTypes = transpiledModuleDeclaredMoonbitTypes.moonbitEnumTypes
+                                                                , moonbitLets = withInferredValeAndFunctionDeclarationsSoFar.moonbitLets
                                                                 }
                                                     of
                                                         Ok moonbitValueOrFunctionDeclaration ->
@@ -6482,6 +6484,7 @@ modules syntaxDeclarationsIncludingOverwrittenOnes =
                                                                 Just parameters ->
                                                                     { errors = withInferredValeAndFunctionDeclarationsSoFar.errors
                                                                     , moonbitEnumTypes = withInferredValeAndFunctionDeclarationsSoFar.moonbitEnumTypes
+                                                                    , moonbitLets = withInferredValeAndFunctionDeclarationsSoFar.moonbitLets
                                                                     , declarations =
                                                                         { typeAliases = withInferredValeAndFunctionDeclarationsSoFar.declarations.typeAliases
                                                                         , enumTypes = withInferredValeAndFunctionDeclarationsSoFar.declarations.enumTypes
@@ -6499,6 +6502,9 @@ modules syntaxDeclarationsIncludingOverwrittenOnes =
                                                                 Nothing ->
                                                                     { errors = withInferredValeAndFunctionDeclarationsSoFar.errors
                                                                     , moonbitEnumTypes = withInferredValeAndFunctionDeclarationsSoFar.moonbitEnumTypes
+                                                                    , moonbitLets =
+                                                                        withInferredValeAndFunctionDeclarationsSoFar.moonbitLets
+                                                                            |> FastSet.insert moonbitName
                                                                     , declarations =
                                                                         { typeAliases = withInferredValeAndFunctionDeclarationsSoFar.declarations.typeAliases
                                                                         , enumTypes = withInferredValeAndFunctionDeclarationsSoFar.declarations.enumTypes
@@ -6515,6 +6521,7 @@ modules syntaxDeclarationsIncludingOverwrittenOnes =
                                                         Err error ->
                                                             { declarations = withInferredValeAndFunctionDeclarationsSoFar.declarations
                                                             , moonbitEnumTypes = withInferredValeAndFunctionDeclarationsSoFar.moonbitEnumTypes
+                                                            , moonbitLets = withInferredValeAndFunctionDeclarationsSoFar.moonbitLets
                                                             , errors =
                                                                 ("in value/function declaration "
                                                                     ++ moduleName
@@ -6535,6 +6542,7 @@ modules syntaxDeclarationsIncludingOverwrittenOnes =
                                                                         |> valueOrFunctionDeclaration
                                                                             { moduleInfo = moduleInfo
                                                                             , moonbitEnumTypes = transpiledModuleDeclaredMoonbitTypes.moonbitEnumTypes
+                                                                            , moonbitLets = withCycleMembersSoFar.moonbitLets
                                                                             }
                                                                 of
                                                                     Ok moonbitValueOrFunctionDeclaration ->
@@ -6548,6 +6556,7 @@ modules syntaxDeclarationsIncludingOverwrittenOnes =
                                                                         in
                                                                         { errors = withCycleMembersSoFar.errors
                                                                         , moonbitEnumTypes = withCycleMembersSoFar.moonbitEnumTypes
+                                                                        , moonbitLets = withCycleMembersSoFar.moonbitLets
                                                                         , declarations =
                                                                             { typeAliases = withCycleMembersSoFar.declarations.typeAliases
                                                                             , enumTypes = withCycleMembersSoFar.declarations.enumTypes
@@ -6569,6 +6578,7 @@ modules syntaxDeclarationsIncludingOverwrittenOnes =
                                                                     Err error ->
                                                                         { declarations = withCycleMembersSoFar.declarations
                                                                         , moonbitEnumTypes = withCycleMembersSoFar.moonbitEnumTypes
+                                                                        , moonbitLets = withCycleMembersSoFar.moonbitLets
                                                                         , errors =
                                                                             ("in value/function declaration "
                                                                                 ++ moduleName
@@ -6586,6 +6596,7 @@ modules syntaxDeclarationsIncludingOverwrittenOnes =
                                             moduleDeclaredInferredTypeAliasesAndChoiceTypes.errors
                                                 ++ soFarAcrossModules.errors
                                         , moonbitEnumTypes = transpiledModuleDeclaredMoonbitTypes.moonbitEnumTypes
+                                        , moonbitLets = soFarAcrossModules.moonbitLets
                                         , declarations =
                                             { fns = soFarAcrossModules.declarations.fns
                                             , lets = soFarAcrossModules.declarations.lets
@@ -6600,6 +6611,7 @@ modules syntaxDeclarationsIncludingOverwrittenOnes =
                             )
                             { errors = []
                             , moonbitEnumTypes = FastDict.empty
+                            , moonbitLets = FastSet.empty
                             , declarations =
                                 { lets = []
                                 , fns = []
@@ -7010,6 +7022,7 @@ valueOrFunctionDeclaration :
             , isEq : Bool
             , variantReferencedValueIndexes : FastDict.Dict String (List Int)
             }
+    , moonbitLets : FastSet.Set String
     }
     -> InferredValueOrFunctionDeclaration
     ->
@@ -7234,6 +7247,7 @@ valueOrFunctionDeclaration context syntaxDeclarationValueOrFunction =
                             )
                 , letDeclaredValueAndFunctionTypes = FastDict.empty
                 , moonbitEnumTypes = context.moonbitEnumTypes
+                , moonbitLets = context.moonbitLets
                 , path = [ "result" ]
                 }
         )
@@ -7474,6 +7488,7 @@ type alias ExpressionToMoonbitContext =
             , isEq : Bool
             , variantReferencedValueIndexes : FastDict.Dict String (List Int)
             }
+    , moonbitLets : FastSet.Set String
     , path : List String
     }
 
@@ -7969,6 +7984,7 @@ expression context expressionTypedNode =
                         , letDeclaredValueAndFunctionTypes =
                             context.letDeclaredValueAndFunctionTypes
                         , moonbitEnumTypes = context.moonbitEnumTypes
+                        , moonbitLets = context.moonbitLets
                         , path = "called" :: context.path
                         }
                 )
@@ -7986,6 +8002,7 @@ expression context expressionTypedNode =
                                     , letDeclaredValueAndFunctionTypes =
                                         context.letDeclaredValueAndFunctionTypes
                                     , moonbitEnumTypes = context.moonbitEnumTypes
+                                    , moonbitLets = context.moonbitLets
                                     , path =
                                         ("argument" ++ (argumentIndex |> String.fromInt))
                                             :: context.path
@@ -8013,6 +8030,7 @@ expression context expressionTypedNode =
                                 , letDeclaredValueAndFunctionTypes =
                                     context.letDeclaredValueAndFunctionTypes
                                 , moonbitEnumTypes = context.moonbitEnumTypes
+                                , moonbitLets = context.moonbitLets
                                 , path = "left" :: context.path
                                 }
                         )
@@ -8026,6 +8044,7 @@ expression context expressionTypedNode =
                                 , letDeclaredValueAndFunctionTypes =
                                     context.letDeclaredValueAndFunctionTypes
                                 , moonbitEnumTypes = context.moonbitEnumTypes
+                                , moonbitLets = context.moonbitLets
                                 , path = "right" :: context.path
                                 }
                         )
@@ -8048,6 +8067,7 @@ expression context expressionTypedNode =
                                 , letDeclaredValueAndFunctionTypes =
                                     context.letDeclaredValueAndFunctionTypes
                                 , moonbitEnumTypes = context.moonbitEnumTypes
+                                , moonbitLets = context.moonbitLets
                                 , path = "left" :: context.path
                                 }
                         )
@@ -8061,6 +8081,7 @@ expression context expressionTypedNode =
                                 , letDeclaredValueAndFunctionTypes =
                                     context.letDeclaredValueAndFunctionTypes
                                 , moonbitEnumTypes = context.moonbitEnumTypes
+                                , moonbitLets = context.moonbitLets
                                 , path = "right" :: context.path
                                 }
                         )
@@ -8111,6 +8132,7 @@ expression context expressionTypedNode =
                                 , letDeclaredValueAndFunctionTypes =
                                     context.letDeclaredValueAndFunctionTypes
                                 , moonbitEnumTypes = context.moonbitEnumTypes
+                                , moonbitLets = context.moonbitLets
                                 , path = "left" :: context.path
                                 }
                         )
@@ -8124,6 +8146,7 @@ expression context expressionTypedNode =
                                 , letDeclaredValueAndFunctionTypes =
                                     context.letDeclaredValueAndFunctionTypes
                                 , moonbitEnumTypes = context.moonbitEnumTypes
+                                , moonbitLets = context.moonbitLets
                                 , path = "right" :: context.path
                                 }
                         )
@@ -8164,6 +8187,7 @@ expression context expressionTypedNode =
                                 , letDeclaredValueAndFunctionTypes =
                                     context.letDeclaredValueAndFunctionTypes
                                 , moonbitEnumTypes = context.moonbitEnumTypes
+                                , moonbitLets = context.moonbitLets
                                 , path = "left" :: context.path
                                 }
                         )
@@ -8177,6 +8201,7 @@ expression context expressionTypedNode =
                                 , letDeclaredValueAndFunctionTypes =
                                     context.letDeclaredValueAndFunctionTypes
                                 , moonbitEnumTypes = context.moonbitEnumTypes
+                                , moonbitLets = context.moonbitLets
                                 , path = "right" :: context.path
                                 }
                         )
@@ -8209,6 +8234,7 @@ expression context expressionTypedNode =
                                 , letDeclaredValueAndFunctionTypes =
                                     context.letDeclaredValueAndFunctionTypes
                                 , moonbitEnumTypes = context.moonbitEnumTypes
+                                , moonbitLets = context.moonbitLets
                                 , path = "left" :: context.path
                                 }
                         )
@@ -8222,6 +8248,7 @@ expression context expressionTypedNode =
                                 , letDeclaredValueAndFunctionTypes =
                                     context.letDeclaredValueAndFunctionTypes
                                 , moonbitEnumTypes = context.moonbitEnumTypes
+                                , moonbitLets = context.moonbitLets
                                 , path = "right" :: context.path
                                 }
                         )
@@ -8726,6 +8753,11 @@ expression context expressionTypedNode =
                                                     , inferredType = expressionTypedNode.type_
                                                     , originDeclarationTypeWithExpandedAliases =
                                                         originDeclarationTypeWithExpandedAliases
+                                                    , isLetDeclaredIfConcreteValue =
+                                                        -- currently no default declarations are
+                                                        -- lazy be necessity of being recursive and triggering a
+                                                        -- moonbit compile error
+                                                        \() -> True
                                                     }
 
                                             Nothing ->
@@ -8748,6 +8780,8 @@ expression context expressionTypedNode =
                                                         originDeclarationTypeWithExpandedAliases
                                                     , qualification = []
                                                     , name = specializedMoonbitName
+                                                    , isLetDeclaredIfConcreteValue =
+                                                        \() -> context.moonbitLets |> FastSet.member moonbitName
                                                     }
                 )
 
@@ -8770,6 +8804,7 @@ expression context expressionTypedNode =
                         , letDeclaredValueAndFunctionTypes =
                             context.letDeclaredValueAndFunctionTypes
                         , moonbitEnumTypes = context.moonbitEnumTypes
+                        , moonbitLets = context.moonbitLets
                         , path = "condition" :: context.path
                         }
                 )
@@ -8783,6 +8818,7 @@ expression context expressionTypedNode =
                         , letDeclaredValueAndFunctionTypes =
                             context.letDeclaredValueAndFunctionTypes
                         , moonbitEnumTypes = context.moonbitEnumTypes
+                        , moonbitLets = context.moonbitLets
                         , path = "on_true" :: context.path
                         }
                 )
@@ -8796,6 +8832,7 @@ expression context expressionTypedNode =
                         , letDeclaredValueAndFunctionTypes =
                             context.letDeclaredValueAndFunctionTypes
                         , moonbitEnumTypes = context.moonbitEnumTypes
+                        , moonbitLets = context.moonbitLets
                         , path = "on_false" :: context.path
                         }
                 )
@@ -8843,6 +8880,7 @@ expression context expressionTypedNode =
                         , functionDeclaredMoonbitParameterEquivalentBindings =
                             context.functionDeclaredMoonbitParameterEquivalentBindings
                         , moonbitEnumTypes = context.moonbitEnumTypes
+                        , moonbitLets = context.moonbitLets
                         , path = "part0" :: context.path
                         }
                 )
@@ -8856,6 +8894,7 @@ expression context expressionTypedNode =
                         , letDeclaredValueAndFunctionTypes =
                             context.letDeclaredValueAndFunctionTypes
                         , moonbitEnumTypes = context.moonbitEnumTypes
+                        , moonbitLets = context.moonbitLets
                         , path = "part1" :: context.path
                         }
                 )
@@ -8879,6 +8918,7 @@ expression context expressionTypedNode =
                         , letDeclaredValueAndFunctionTypes =
                             context.letDeclaredValueAndFunctionTypes
                         , moonbitEnumTypes = context.moonbitEnumTypes
+                        , moonbitLets = context.moonbitLets
                         , path = "part0" :: context.path
                         }
                 )
@@ -8892,6 +8932,7 @@ expression context expressionTypedNode =
                         , letDeclaredValueAndFunctionTypes =
                             context.letDeclaredValueAndFunctionTypes
                         , moonbitEnumTypes = context.moonbitEnumTypes
+                        , moonbitLets = context.moonbitLets
                         , path = "part1" :: context.path
                         }
                 )
@@ -8905,6 +8946,7 @@ expression context expressionTypedNode =
                         , letDeclaredValueAndFunctionTypes =
                             context.letDeclaredValueAndFunctionTypes
                         , moonbitEnumTypes = context.moonbitEnumTypes
+                        , moonbitLets = context.moonbitLets
                         , path = "part2" :: context.path
                         }
                 )
@@ -8944,6 +8986,7 @@ expression context expressionTypedNode =
                                     , letDeclaredValueAndFunctionTypes =
                                         context.letDeclaredValueAndFunctionTypes
                                     , moonbitEnumTypes = context.moonbitEnumTypes
+                                    , moonbitLets = context.moonbitLets
                                     , path = (elementIndex |> String.fromInt) :: context.path
                                     }
                         )
@@ -8981,6 +9024,7 @@ expression context expressionTypedNode =
                                         , letDeclaredValueAndFunctionTypes =
                                             context.letDeclaredValueAndFunctionTypes
                                         , moonbitEnumTypes = context.moonbitEnumTypes
+                                        , moonbitLets = context.moonbitLets
                                         , path =
                                             (field.name |> toSnakeCaseMoonbitName)
                                                 :: context.path
@@ -9064,6 +9108,7 @@ expression context expressionTypedNode =
                                                 , letDeclaredValueAndFunctionTypes =
                                                     context.letDeclaredValueAndFunctionTypes
                                                 , moonbitEnumTypes = context.moonbitEnumTypes
+                                                , moonbitLets = context.moonbitLets
                                                 , path =
                                                     (field.name |> toSnakeCaseMoonbitName)
                                                         :: context.path
@@ -9187,6 +9232,7 @@ expression context expressionTypedNode =
                         , letDeclaredValueAndFunctionTypes =
                             context.letDeclaredValueAndFunctionTypes
                         , moonbitEnumTypes = context.moonbitEnumTypes
+                        , moonbitLets = context.moonbitLets
                         , path = "result" :: context.path
                         }
                 )
@@ -9216,6 +9262,7 @@ expression context expressionTypedNode =
                         , letDeclaredValueAndFunctionTypes =
                             context.letDeclaredValueAndFunctionTypes
                         , moonbitEnumTypes = context.moonbitEnumTypes
+                        , moonbitLets = context.moonbitLets
                         , path = "matched" :: context.path
                         }
                 )
@@ -9257,6 +9304,7 @@ expression context expressionTypedNode =
                                         , letDeclaredValueAndFunctionTypes =
                                             context.letDeclaredValueAndFunctionTypes
                                         , moonbitEnumTypes = context.moonbitEnumTypes
+                                        , moonbitLets = context.moonbitLets
                                         , path =
                                             -- intentional as there is only one sub-expression
                                             ("case" ++ (caseIndex |> String.fromInt))
@@ -9348,6 +9396,7 @@ expression context expressionTypedNode =
                                     , letDeclaredValueAndFunctionTypes =
                                         letDeclaredValueAndFunctionTypesIncludingFromContext
                                     , moonbitEnumTypes = context.moonbitEnumTypes
+                                    , moonbitLets = context.moonbitLets
                                     , path =
                                         ("let_declaration" ++ (letDeclarationIndex |> String.fromInt))
                                             :: context.path
@@ -9365,6 +9414,7 @@ expression context expressionTypedNode =
                         , letDeclaredValueAndFunctionTypes =
                             letDeclaredValueAndFunctionTypesIncludingFromContext
                         , moonbitEnumTypes = context.moonbitEnumTypes
+                        , moonbitLets = context.moonbitLets
                         , path = "let_result" :: context.path
                         }
                 )
@@ -9417,6 +9467,7 @@ moonbitExpressionReferenceDeclaredFnAppliedLazilyOrCurriedIfNecessary :
         , name : String
         , inferredType : ElmSyntaxTypeInfer.Type
         , originDeclarationTypeWithExpandedAliases : ElmSyntaxTypeInfer.Type
+        , isLetDeclaredIfConcreteValue : () -> Bool
         }
     -> MoonbitExpression
 moonbitExpressionReferenceDeclaredFnAppliedLazilyOrCurriedIfNecessary context moonbitReference =
@@ -9445,7 +9496,10 @@ moonbitExpressionReferenceDeclaredFnAppliedLazilyOrCurriedIfNecessary context mo
                         , isPartOfTypeDeclaration = False
                         }
         in
-        if resultMoonbitType |> moonbitTypeIsConcrete then
+        if
+            (resultMoonbitType |> moonbitTypeIsConcrete)
+                && moonbitReference.isLetDeclaredIfConcreteValue ()
+        then
             MoonbitExpressionReference
                 { qualification = moonbitReference.qualification
                 , name = moonbitReference.name
@@ -11276,6 +11330,7 @@ letDeclaration context syntaxLetDeclarationNode =
                         , letDeclaredValueAndFunctionTypes =
                             context.letDeclaredValueAndFunctionTypes
                         , moonbitEnumTypes = context.moonbitEnumTypes
+                        , moonbitLets = context.moonbitLets
                         , path =
                             -- intentional as there is only one sub-expression
                             context.path
@@ -11516,6 +11571,7 @@ letValueOrFunctionDeclaration context inferredLetDeclarationValueOrFunctionNode 
                     , functionDeclaredMoonbitParameterEquivalentBindings =
                         context.functionDeclaredMoonbitParameterEquivalentBindings
                     , moonbitEnumTypes = context.moonbitEnumTypes
+                    , moonbitLets = context.moonbitLets
                     }
             )
 
@@ -11724,6 +11780,7 @@ letValueOrFunctionDeclaration context inferredLetDeclarationValueOrFunctionNode 
                     , letDeclaredValueAndFunctionTypes =
                         context.letDeclaredValueAndFunctionTypes
                     , moonbitEnumTypes = context.moonbitEnumTypes
+                    , moonbitLets = context.moonbitLets
                     , path = "result" :: context.path
                     }
             )
