@@ -1579,8 +1579,8 @@ pub fn string_words(string : StringString) -> @list.List[StringString] {
 
 ///|
 pub fn[State] string_foldl(
-  initial_state : State,
   reduce : (Char, State) -> State,
+  initial_state : State,
   string : StringString,
 ) -> State {
   String::fold(string_string_to_string(string), init=initial_state, fn(
@@ -1593,8 +1593,8 @@ pub fn[State] string_foldl(
 
 ///|
 pub fn[State] string_foldr(
-  initial_state : State,
   reduce : (Char, State) -> State,
+  initial_state : State,
   string : StringString,
 ) -> State {
   String::rev_fold(string_string_to_string(string), init=initial_state, fn(
@@ -2090,9 +2090,9 @@ pub fn[K : Compare, VA, VB, State] dict_merge(
   reduce_only_a : (K, VA, State) -> State,
   reduce_both : (K, VA, VB, State) -> State,
   reduce_only_b : (K, VB, State) -> State,
-  initial_state : State,
   a_dict : @immut/sorted_map.SortedMap[K, VA],
   b_dict : @immut/sorted_map.SortedMap[K, VB],
+  initial_state : State,
 ) -> State {
   Iter::concat(a_dict.keys_as_iter(), b_dict.keys_as_iter())
   |> Iter::fold(init=initial_state, fn(so_far, key) {
@@ -2423,7 +2423,7 @@ pub fn json_encode_int(int : Int64) -> Json {
 }
 
 ///|
-pub fnalias Json::number as json_encode_double
+pub fnalias Json::number as json_encode_float
 
 ///|
 pub fn json_encode_string(string : StringString) -> Json {
@@ -2475,14 +2475,21 @@ pub fn[K, V] json_encode_dict(
   Json::object(
     dict
     |> @immut/sorted_map.SortedMap::iter()
-    |> Iter::map(fn(entry) { (key_to_string(entry.0), value_to_json(entry.1)) })
+    |> Iter::map(fn(entry) {
+      (string_string_to_string(key_to_string(entry.0)), value_to_json(entry.1))
+    })
     |> Map::from_iter,
   )
 }
 
 ///|
 pub fn json_encode_object(fields : @list.List[(StringString, Json)]) -> Json {
-  Json::object(fields |> @list.List::iter() |> Map::from_iter)
+  Json::object(
+    fields
+    |> @list.List::iter()
+    |> Iter::map(fn(field) { (string_string_to_string(field.0), field.1) })
+    |> Map::from_iter,
+  )
 }
 
 ///|
