@@ -1,5 +1,3 @@
-> Status: somewhat simple programs only relying on elm/core, elm/html, elm/svg, elm/time, elm/parser, elm/bytes are likely to succeed, others will probably fail.
-
 Print [`elm-syntax`](https://dark.elm.dmy.fr/packages/stil4m/elm-syntax/latest/) declarations as [moonbit](https://docs.moonbitlang.com/en/latest/index.html) code.
 To try it out, you can
 run [this script](https://github.com/lue-bird/elm-syntax-to-moonbit/tree/main/node-elm-to-moonbit).
@@ -49,6 +47,7 @@ pub fn sample_plus2(n: Double) -> Double {
         userId : { u | name : String, server : Domain } -> String
         ```
         In the non-allowed cases listed above, we assume that you intended to use a regular record type with only the extension fields which can lead to moonbit compile errors if you actually pass in additional fields.
+    - The transpiled list type is not yet comparable (unlike elm lists), it is implemented but not yet published, see https://github.com/moonbitlang/core/issues/2757
     - elm's `Char.toLocale[Case]` functions will just behave like `Char.to[Case]`
     - elm's `VirtualDom/Html/Svg.lazyN` functions will still exist for compatibility but they will behave just like constructing them eagerly
 - dependencies cannot internally use the same module names as the transpiled project
@@ -108,8 +107,14 @@ In the transpiled code, you will find these types:
 - elm `String`s (like `"a"`) will be of the custom type `StringString`.
   Create from literals or other string slices with (`StringString::One("a")`). Match with `your_string if string_string_string_equals_stringing(your_string, "some string")`
 - elm records like `{ y : Float, x : Float }` will be of type `GeneratedXY<f64, f64>` with the fields sorted and can be constructed and matched with `{ x: _, y: _ }`. `record.x` access also works
-- elm `Array`s (like `Array.fromList [ 'a' ]`) will be of type `@immut/array.Array`.
+- elm `Array`s will be of type `@immut/array.Array`.
   Create and match with the helpers in [`@immut/array`](https://mooncakes.io/docs/moonbitlang/core/immut/array)
+- elm `Set`s will be of type `@immut/sorted_set.SortedSet`.
+  Create and match with the helpers in [`@immut/sorted_set`](https://mooncakes.io/docs/moonbitlang/core/immut/sorted_set)
+- elm `Dict`s will be of type `@immut/sorted_map.SortedMap`.
+  Create and match with the helpers in [`@immut/sorted_map`](https://mooncakes.io/docs/moonbitlang/core/immut/sorted_map)
+- elm `Json.Encode.Value`/`Json.Decode.Value`s will be of type `Json`.
+  Create and match with the helpers in [`@json.`/`Json::`](https://mooncakes.io/docs/moonbitlang/core/json)
 - elm `Bytes.Bytes` will be of type `Bytes`.
   Create and match with the helpers in [`@bytes`/`Bytes::`](https://mooncakes.io/docs/moonbitlang/core/bytes)
 - a transpiled elm app does not run itself.
