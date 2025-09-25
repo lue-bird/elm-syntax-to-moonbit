@@ -10,7 +10,7 @@ declarations to moonbit.
 @docs MoonbitStatement, MoonbitExpression, MoonbitPattern, MoonbitType
 
 If you need more fine-grained helpers,
-[open an issue](https://github.com/lue-bird/elm-syntax-format/issues/new)
+[open an issue](https://github.com/lue-bird/elm-syntax-to-moonbit/issues/new)
 
 -}
 
@@ -33,8 +33,7 @@ import Unicode
 {-| The sub-set of moonbit type syntax used in generated code
 -}
 type MoonbitType
-    = -- _ TODO remove
-      MoonbitTypeInfer
+    = MoonbitTypeInfer
     | MoonbitTypeConstruct
         { qualification : List String
         , name : String
@@ -66,15 +65,9 @@ type MoonbitPattern
     | MoonbitPatternInteger Int
     | MoonbitPatternChar Char
     | MoonbitPatternString String
-    | MoonbitPatternVariable
-        { name : String
-        , -- should not be necessary
-          type_ : MoonbitType
-        }
+    | MoonbitPatternVariable String
     | MoonbitPatternAlias
         { variable : String
-        , -- should not be necessary
-          type_ : MoonbitType
         , pattern : MoonbitPattern
         }
     | MoonbitPatternStructNotExhaustive
@@ -124,7 +117,7 @@ type MoonbitExpression
         { struct : MoonbitExpression
         , field : String
         }
-    | -- type hint or casting
+    | -- type hint
       MoonbitExpressionAs
         { expression : MoonbitExpression
         , type_ : MoonbitType
@@ -192,7 +185,6 @@ type MoonbitStatement
         , parameters : List { binding : Maybe String, type_ : MoonbitType }
         , result : MoonbitExpression
         , resultType : MoonbitType
-        , typeParameters : List String
         }
     | MoonbitStatementLetDeclarationUninitialized
         { name : String
@@ -2055,10 +2047,7 @@ pattern context patternInferred =
                     stringAsGeneratedMoonbitPatternBindingName stringValue
             in
             { pattern =
-                MoonbitPatternVariable
-                    { name = generatedStringBindingName
-                    , type_ = moonbitTypeStringString
-                    }
+                MoonbitPatternVariable generatedStringBindingName
             , guardConditions =
                 [ MoonbitExpressionCall
                     { called = moonbitExpressionReferenceStringEqualsStr
@@ -2079,15 +2068,7 @@ pattern context patternInferred =
         ElmSyntaxTypeInfer.PatternVariable variableName ->
             { pattern =
                 MoonbitPatternVariable
-                    { name = variableName |> toSnakeCaseMoonbitName
-                    , type_ =
-                        patternInferred.type_
-                            |> type_
-                                { moonbitEnumTypes = context.moonbitEnumTypes
-                                , typeAliasesInModule = context.typeAliasesInModule
-                                , isPartOfTypeDeclaration = False
-                                }
-                    }
+                    (variableName |> toSnakeCaseMoonbitName)
             , guardConditions = []
             }
 
@@ -2195,20 +2176,7 @@ pattern context patternInferred =
                                     soFar
                                         |> FastDict.insert moonbitFieldName
                                             (MoonbitPatternVariable
-                                                { name = moonbitFieldName
-                                                , type_ =
-                                                    case allRecordFieldsIncludingOmitted |> FastDict.get field.value of
-                                                        Nothing ->
-                                                            MoonbitTypeInfer
-
-                                                        Just inferredType ->
-                                                            inferredType
-                                                                |> type_
-                                                                    { moonbitEnumTypes = context.moonbitEnumTypes
-                                                                    , typeAliasesInModule = context.typeAliasesInModule
-                                                                    , isPartOfTypeDeclaration = False
-                                                                    }
-                                                }
+                                                moonbitFieldName
                                             )
                                 )
                                 FastDict.empty
@@ -2346,15 +2314,6 @@ pattern context patternInferred =
                 dereferencedAliasBindingName =
                     patternAs.variable.value |> toSnakeCaseMoonbitName
 
-                moonbitType : MoonbitType
-                moonbitType =
-                    patternAs.variable.type_
-                        |> type_
-                            { moonbitEnumTypes = context.moonbitEnumTypes
-                            , typeAliasesInModule = context.typeAliasesInModule
-                            , isPartOfTypeDeclaration = False
-                            }
-
                 moonbitPattern :
                     { pattern : MoonbitPattern
                     , guardConditions : List MoonbitExpression
@@ -2365,7 +2324,6 @@ pattern context patternInferred =
             { pattern =
                 MoonbitPatternAlias
                     { variable = dereferencedAliasBindingName
-                    , type_ = moonbitType
                     , pattern = moonbitPattern.pattern
                     }
             , guardConditions = moonbitPattern.guardConditions
@@ -2892,17 +2850,6 @@ justMoonbitReferenceStringString =
     Just
         { qualification = []
         , name = "StringString"
-        , isShow = True
-        , isEq = True
-        }
-
-
-moonbitTypeStringString : MoonbitType
-moonbitTypeStringString =
-    MoonbitTypeConstruct
-        { qualification = []
-        , name = "StringString"
-        , arguments = []
         , isShow = True
         , isEq = True
         }
@@ -5013,7 +4960,7 @@ printMoonbitPattern moonbitPattern =
             printMoonbitStringLiteral string
 
         MoonbitPatternVariable variable ->
-            Print.exactly variable.name
+            Print.exactly variable
 
         MoonbitPatternAlias moonbitPatternAlias ->
             printMoonbitPatternAlias moonbitPatternAlias
@@ -5036,7 +4983,6 @@ printMoonbitPatternInteger int64 =
 printMoonbitPatternAlias :
     { pattern : MoonbitPattern
     , variable : String
-    , type_ : MoonbitType
     }
     -> Print
 printMoonbitPatternAlias moonbitPatternAlias =
@@ -7183,9 +7129,7 @@ valueOrFunctionDeclaration context syntaxDeclarationValueOrFunction =
                                 in
                                 { pattern =
                                     MoonbitPatternVariable
-                                        { name = additionalParameter.name
-                                        , type_ = additionalParameterTypeUnnestedFn
-                                        }
+                                        additionalParameter.name
                                 , type_ = additionalParameterTypeUnnestedFn
                                 }
                             )
@@ -7240,7 +7184,7 @@ valueOrFunctionDeclaration context syntaxDeclarationValueOrFunction =
                                     { binding =
                                         case parameter.pattern of
                                             MoonbitPatternVariable parameterVariable ->
-                                                Just parameterVariable.name
+                                                Just parameterVariable
 
                                             MoonbitPatternIgnore ->
                                                 Nothing
@@ -7318,70 +7262,19 @@ moonbitParameterUnnestFn parameter =
         typeUnnestedFn =
             parameter.type_ |> moonbitTypeUnnestFn
     in
-    { pattern =
-        parameter.pattern
-            |> moonbitPatternDirectlyCapturingBindingsSetType typeUnnestedFn
+    { pattern = parameter.pattern
     , type_ = typeUnnestedFn
     }
 
 
-{-| E.g. in
-
-    (a @ ((b) @ ( first, second @ third )))
-
-the "directly capturing" bindings are `a` and `b`
-as they reference the whole matched expression.
-
--}
-moonbitPatternDirectlyCapturingBindingsSetType : MoonbitType -> MoonbitPattern -> MoonbitPattern
-moonbitPatternDirectlyCapturingBindingsSetType newMoonbitType moonbitPattern =
-    -- IGNORE TCO
-    case moonbitPattern of
-        MoonbitPatternIgnore ->
-            MoonbitPatternIgnore
-
-        MoonbitPatternChar _ ->
-            moonbitPattern
-
-        MoonbitPatternString _ ->
-            moonbitPattern
-
-        MoonbitPatternInteger _ ->
-            moonbitPattern
-
-        MoonbitPatternTuple _ ->
-            moonbitPattern
-
-        MoonbitPatternVariant _ ->
-            moonbitPattern
-
-        MoonbitPatternStructNotExhaustive _ ->
-            moonbitPattern
-
-        MoonbitPatternVariable binding ->
-            MoonbitPatternVariable
-                { name = binding.name
-                , type_ = newMoonbitType
-                }
-
-        MoonbitPatternAlias patternAlias ->
-            MoonbitPatternAlias
-                { variable = patternAlias.variable
-                , type_ = newMoonbitType
-                , pattern =
-                    patternAlias.pattern
-                        |> moonbitPatternDirectlyCapturingBindingsSetType newMoonbitType
-                }
-
-
-{-| `Fn(First) -> Fn(Second) -> Out` to `Fn(First, Second) -> Out`
+{-| `(First) -> (Second) -> Out` to `(First, Second) -> Out`
 -}
 moonbitTypeUnnestFn : MoonbitType -> MoonbitType
 moonbitTypeUnnestFn moonbitType =
     moonbitTypeUnnestFnPrependReverseInputs [] moonbitType
 
 
-{-| `Fn(First) -> Fn(Second) -> Out` to `Fn(First, Second) -> Out`
+{-| `(First) -> (Second) -> Out` to `(First, Second) -> Out`
 -}
 moonbitTypeUnnestFnPrependReverseInputs : List MoonbitType -> MoonbitType -> MoonbitType
 moonbitTypeUnnestFnPrependReverseInputs reverseInputsToPrepend moonbitType =
@@ -9290,7 +9183,7 @@ expression context expressionTypedNode =
                                         [ { binding =
                                                 case parameter.pattern of
                                                     MoonbitPatternVariable parameterVariable ->
-                                                        Just parameterVariable.name
+                                                        Just parameterVariable
 
                                                     MoonbitPatternIgnore ->
                                                         Nothing
@@ -11390,7 +11283,6 @@ moonbitStatementSubstituteReferences referenceToExpression moonbitStatement =
                 { name = fnDeclaration.name
                 , parameters = fnDeclaration.parameters
                 , resultType = fnDeclaration.resultType
-                , typeParameters = fnDeclaration.typeParameters
                 , result =
                     fnDeclaration.result
                         |> moonbitExpressionSubstituteReferences referenceToExpression
@@ -11713,13 +11605,11 @@ letValueOrFunctionDeclaration context inferredLetDeclarationValueOrFunctionNode 
                             }
                         )
 
-            elmParametersAsMoonbit :
-                { patterns : List { pattern : MoonbitPattern, type_ : MoonbitType }
-                }
+            elmParametersAsMoonbit : List { pattern : MoonbitPattern, type_ : MoonbitType }
             elmParametersAsMoonbit =
                 inferredLetDeclarationValueOrFunctionNode.declaration.parameters
-                    |> List.foldr
-                        (\parameter soFar ->
+                    |> List.map
+                        (\parameter ->
                             let
                                 moonbitParameter :
                                     { pattern : MoonbitPattern
@@ -11732,27 +11622,21 @@ letValueOrFunctionDeclaration context inferredLetDeclarationValueOrFunctionNode 
                                             , moonbitEnumTypes = context.moonbitEnumTypes
                                             }
                             in
-                            { patterns =
-                                ({ pattern = moonbitParameter.pattern
-                                 , type_ =
-                                    parameter.type_
-                                        |> type_
-                                            { typeAliasesInModule = typeAliasesInModule
-                                            , moonbitEnumTypes = context.moonbitEnumTypes
-                                            , isPartOfTypeDeclaration = False
-                                            }
-                                 }
-                                    |> moonbitParameterUnnestFn
-                                )
-                                    :: soFar.patterns
+                            { pattern = moonbitParameter.pattern
+                            , type_ =
+                                parameter.type_
+                                    |> type_
+                                        { typeAliasesInModule = typeAliasesInModule
+                                        , moonbitEnumTypes = context.moonbitEnumTypes
+                                        , isPartOfTypeDeclaration = False
+                                        }
                             }
+                                |> moonbitParameterUnnestFn
                         )
-                        { patterns = []
-                        }
 
             allMoonbitParameters : List { pattern : MoonbitPattern, type_ : MoonbitType }
             allMoonbitParameters =
-                elmParametersAsMoonbit.patterns
+                elmParametersAsMoonbit
                     ++ (additionalGeneratedParameters
                             |> List.map
                                 (\generatedAdditionalParameter ->
@@ -11765,9 +11649,7 @@ letValueOrFunctionDeclaration context inferredLetDeclarationValueOrFunctionNode 
                                     { type_ = parameterTypeUnnestedFn
                                     , pattern =
                                         MoonbitPatternVariable
-                                            { name = generatedAdditionalParameter.name
-                                            , type_ = parameterTypeUnnestedFn
-                                            }
+                                            generatedAdditionalParameter.name
                                     }
                                 )
                        )
@@ -11799,28 +11681,9 @@ letValueOrFunctionDeclaration context inferredLetDeclarationValueOrFunctionNode 
                                 , moonbitEnumTypes = context.moonbitEnumTypes
                                 , isPartOfTypeDeclaration = False
                                 }
-                in
-                MoonbitStatementFnDeclaration
-                    { name = moonbitName
-                    , parameters =
-                        allMoonbitParameters
-                            |> List.indexedMap
-                                (\parameterIndex parameter ->
-                                    { binding =
-                                        case parameter.pattern of
-                                            MoonbitPatternVariable parameterVariable ->
-                                                Just parameterVariable.name
 
-                                            MoonbitPatternIgnore ->
-                                                Nothing
-
-                                            _ ->
-                                                Just (generatedParameterNameForIndex parameterIndex)
-                                    , type_ = parameter.type_
-                                    }
-                                )
-                    , resultType = resultType
-                    , typeParameters =
+                    letLocalTypeVariables : FastSet.Set String
+                    letLocalTypeVariables =
                         allTypeParameters
                             |> List.foldl
                                 (\typeParameter soFar ->
@@ -11834,7 +11697,35 @@ letValueOrFunctionDeclaration context inferredLetDeclarationValueOrFunctionNode 
                                         soFar
                                 )
                                 FastSet.empty
-                            |> FastSet.toList
+                in
+                -- can be optimized by skipping moonbitTypeReplaceLocalTypeVariablesByInfer
+                -- if letLocalTypeVariables is empty (the usual case)
+                MoonbitStatementFnDeclaration
+                    { name = moonbitName
+                    , parameters =
+                        allMoonbitParameters
+                            |> List.indexedMap
+                                (\parameterIndex parameter ->
+                                    { binding =
+                                        case parameter.pattern of
+                                            MoonbitPatternVariable parameterVariable ->
+                                                Just parameterVariable
+
+                                            MoonbitPatternIgnore ->
+                                                Nothing
+
+                                            _ ->
+                                                Just (generatedParameterNameForIndex parameterIndex)
+                                    , type_ =
+                                        parameter.type_
+                                            |> moonbitTypeReplaceLocalTypeVariablesByInfer
+                                                letLocalTypeVariables
+                                    }
+                                )
+                    , resultType =
+                        resultType
+                            |> moonbitTypeReplaceLocalTypeVariablesByInfer
+                                letLocalTypeVariables
                     , result =
                         resultWithAdditionalParameters
                             |> moonbitExpressionPrependStatements
@@ -11861,6 +11752,12 @@ letValueOrFunctionDeclaration context inferredLetDeclarationValueOrFunctionNode 
                                                             }
                                                         )
                                         )
+                                )
+                            |> moonbitExpressionMapTypes
+                                (\innerType ->
+                                    innerType
+                                        |> moonbitTypeReplaceLocalTypeVariablesByInfer
+                                            letLocalTypeVariables
                                 )
                     }
             )
@@ -11890,6 +11787,272 @@ letValueOrFunctionDeclaration context inferredLetDeclarationValueOrFunctionNode 
                     , path = "result" :: context.path
                     }
             )
+
+
+moonbitTypeReplaceLocalTypeVariablesByInfer : FastSet.Set String -> MoonbitType -> MoonbitType
+moonbitTypeReplaceLocalTypeVariablesByInfer localTypeVariables moonbitType =
+    -- IGNORE TCO
+    case moonbitType of
+        MoonbitTypeInfer ->
+            MoonbitTypeInfer
+
+        MoonbitTypeVariable variable ->
+            if localTypeVariables |> FastSet.member variable then
+                MoonbitTypeInfer
+
+            else
+                moonbitType
+
+        MoonbitTypeConstruct typeConstruct ->
+            MoonbitTypeConstruct
+                { qualification = typeConstruct.qualification
+                , name = typeConstruct.name
+                , isEq = typeConstruct.isEq
+                , isShow = typeConstruct.isShow
+                , arguments =
+                    typeConstruct.arguments
+                        |> List.map
+                            (\argument ->
+                                argument |> moonbitTypeReplaceLocalTypeVariablesByInfer localTypeVariables
+                            )
+                }
+
+        MoonbitTypeRecordStruct struct ->
+            MoonbitTypeRecordStruct
+                { name = struct.name
+                , fields =
+                    struct.fields
+                        |> FastDict.map
+                            (\_ fieldValue ->
+                                fieldValue |> moonbitTypeReplaceLocalTypeVariablesByInfer localTypeVariables
+                            )
+                }
+
+        MoonbitTypeTuple parts ->
+            MoonbitTypeTuple
+                { part0 = parts.part0 |> moonbitTypeReplaceLocalTypeVariablesByInfer localTypeVariables
+                , part1 = parts.part1 |> moonbitTypeReplaceLocalTypeVariablesByInfer localTypeVariables
+                , part2Up =
+                    parts.part2Up
+                        |> List.map
+                            (\part ->
+                                part |> moonbitTypeReplaceLocalTypeVariablesByInfer localTypeVariables
+                            )
+                }
+
+        MoonbitTypeFunction function ->
+            MoonbitTypeFunction
+                { input =
+                    function.input
+                        |> List.map
+                            (\part ->
+                                part |> moonbitTypeReplaceLocalTypeVariablesByInfer localTypeVariables
+                            )
+                , output = function.output |> moonbitTypeReplaceLocalTypeVariablesByInfer localTypeVariables
+                }
+
+
+moonbitExpressionMapTypes : (MoonbitType -> MoonbitType) -> MoonbitExpression -> MoonbitExpression
+moonbitExpressionMapTypes typeChange moonbitExpression =
+    -- IGNORE TCO
+    case moonbitExpression of
+        MoonbitExpressionUnit ->
+            MoonbitExpressionUnit
+
+        MoonbitExpressionSelf ->
+            MoonbitExpressionSelf
+
+        MoonbitExpressionInt64 _ ->
+            moonbitExpression
+
+        MoonbitExpressionDouble _ ->
+            moonbitExpression
+
+        MoonbitExpressionChar _ ->
+            moonbitExpression
+
+        MoonbitExpressionString _ ->
+            moonbitExpression
+
+        MoonbitExpressionReference _ ->
+            moonbitExpression
+
+        MoonbitExpressionReferenceMethod _ ->
+            moonbitExpression
+
+        MoonbitExpressionReferenceVariant _ ->
+            moonbitExpression
+
+        MoonbitExpressionNegateOperation inNegate ->
+            MoonbitExpressionNegateOperation
+                (inNegate |> moonbitExpressionMapTypes typeChange)
+
+        MoonbitExpressionStructAccess structAccess ->
+            MoonbitExpressionStructAccess
+                { field = structAccess.field
+                , struct = structAccess.struct |> moonbitExpressionMapTypes typeChange
+                }
+
+        MoonbitExpressionAs typeHint ->
+            MoonbitExpressionAs
+                { type_ = typeHint.type_ |> typeChange
+                , expression = typeHint.expression |> moonbitExpressionMapTypes typeChange
+                }
+
+        MoonbitExpressionBinaryOperation binaryOperation ->
+            MoonbitExpressionBinaryOperation
+                { operator = binaryOperation.operator
+                , left = binaryOperation.left |> moonbitExpressionMapTypes typeChange
+                , right = binaryOperation.right |> moonbitExpressionMapTypes typeChange
+                }
+
+        MoonbitExpressionIfElse ifElse ->
+            MoonbitExpressionIfElse
+                { condition = ifElse.condition |> moonbitExpressionMapTypes typeChange
+                , onTrue = ifElse.onTrue |> moonbitExpressionMapTypes typeChange
+                , onFalse = ifElse.onFalse |> moonbitExpressionMapTypes typeChange
+                }
+
+        MoonbitExpressionArrayLiteral elements ->
+            MoonbitExpressionArrayLiteral
+                (elements
+                    |> List.map
+                        (\element ->
+                            element |> moonbitExpressionMapTypes typeChange
+                        )
+                )
+
+        MoonbitExpressionStruct struct ->
+            MoonbitExpressionStruct
+                { name = struct.name
+                , fields =
+                    struct.fields
+                        |> FastDict.map
+                            (\_ fieldValue ->
+                                fieldValue |> moonbitExpressionMapTypes typeChange
+                            )
+                }
+
+        MoonbitExpressionTuple tuple ->
+            MoonbitExpressionTuple
+                { part0 = tuple.part0 |> moonbitExpressionMapTypes typeChange
+                , part1 = tuple.part1 |> moonbitExpressionMapTypes typeChange
+                , part2Up =
+                    tuple.part2Up
+                        |> List.map
+                            (\part ->
+                                part |> moonbitExpressionMapTypes typeChange
+                            )
+                }
+
+        MoonbitExpressionCall call ->
+            MoonbitExpressionCall
+                { called = call.called |> moonbitExpressionMapTypes typeChange
+                , arguments =
+                    call.arguments
+                        |> List.map
+                            (\part ->
+                                part |> moonbitExpressionMapTypes typeChange
+                            )
+                }
+
+        MoonbitExpressionClosure closure ->
+            MoonbitExpressionClosure
+                { parameters =
+                    closure.parameters
+                        |> List.map
+                            (\parameter ->
+                                { type_ = parameter.type_ |> Maybe.map typeChange
+                                , binding = parameter.binding
+                                }
+                            )
+                , resultType = closure.resultType |> Maybe.map typeChange
+                , result = closure.result |> moonbitExpressionMapTypes typeChange
+                }
+
+        MoonbitExpressionMatch match ->
+            MoonbitExpressionMatch
+                { matched = match.matched
+                , cases =
+                    match.cases
+                        |> List.map
+                            (\matchArm ->
+                                { pattern = matchArm.pattern
+                                , guardConditions =
+                                    matchArm.guardConditions
+                                        |> List.map
+                                            (\guardCondition ->
+                                                guardCondition |> moonbitExpressionMapTypes typeChange
+                                            )
+                                , result = matchArm.result |> moonbitExpressionMapTypes typeChange
+                                }
+                            )
+                }
+
+        MoonbitExpressionAfterStatement expressionAfterStatement ->
+            MoonbitExpressionAfterStatement
+                { statement =
+                    expressionAfterStatement.statement
+                        |> moonbitStatementMapTypes typeChange
+                , result =
+                    expressionAfterStatement.result
+                        |> moonbitExpressionMapTypes typeChange
+                }
+
+
+moonbitStatementMapTypes : (MoonbitType -> MoonbitType) -> MoonbitStatement -> MoonbitStatement
+moonbitStatementMapTypes typeChange moonbitStatement =
+    case moonbitStatement of
+        MoonbitStatementLetDeclarationUninitialized statementUninitialized ->
+            MoonbitStatementLetDeclarationUninitialized
+                { name = statementUninitialized.name
+                , type_ = statementUninitialized.type_ |> typeChange
+                }
+
+        MoonbitStatementLetDestructuring letDestructuring ->
+            MoonbitStatementLetDestructuring
+                { pattern = letDestructuring.pattern
+                , expression =
+                    letDestructuring.expression
+                        |> moonbitExpressionMapTypes typeChange
+                }
+
+        MoonbitStatementBindingAssignment assignment ->
+            MoonbitStatementBindingAssignment
+                { name = assignment.name
+                , assignedValue =
+                    assignment.assignedValue
+                        |> moonbitExpressionMapTypes typeChange
+                }
+
+        MoonbitStatementLetDeclaration statementLetDeclaration ->
+            MoonbitStatementLetDeclaration
+                { name = statementLetDeclaration.name
+                , resultType =
+                    statementLetDeclaration.resultType
+                        |> Maybe.map typeChange
+                , result =
+                    statementLetDeclaration.result
+                        |> moonbitExpressionMapTypes typeChange
+                }
+
+        MoonbitStatementFnDeclaration fnDeclaration ->
+            MoonbitStatementFnDeclaration
+                { name = fnDeclaration.name
+                , parameters =
+                    fnDeclaration.parameters
+                        |> List.map
+                            (\parameter ->
+                                { type_ = parameter.type_ |> typeChange
+                                , binding = parameter.binding
+                                }
+                            )
+                , resultType =
+                    fnDeclaration.resultType |> typeChange
+                , result =
+                    fnDeclaration.result
+                        |> moonbitExpressionMapTypes typeChange
+                }
 
 
 {-| E.g. in
@@ -11926,7 +12089,7 @@ moonbitPatternDirectlyCapturingBindings moonbitPattern =
             FastSet.empty
 
         MoonbitPatternVariable binding ->
-            FastSet.singleton binding.name
+            FastSet.singleton binding
 
         MoonbitPatternAlias patternAlias ->
             FastSet.insert patternAlias.variable
@@ -12787,7 +12950,6 @@ printMoonbitStatementFnDeclaration :
     , parameters : List { binding : Maybe String, type_ : MoonbitType }
     , result : MoonbitExpression
     , resultType : MoonbitType
-    , typeParameters : List String
     }
     -> Print
 printMoonbitStatementFnDeclaration moonbitFnDeclaration =
@@ -12838,13 +13000,7 @@ printMoonbitStatementFnDeclaration moonbitFnDeclaration =
                 |> Print.lineSpreadMergeWith
                     (\() -> resultTypePrint |> Print.lineSpread)
     in
-    Print.exactly "fn"
-        |> Print.followedBy
-            (printMoonbitFnGenerics
-                { typeParameters = moonbitFnDeclaration.typeParameters
-                }
-            )
-        |> Print.followedBy (Print.exactly (" " ++ moonbitFnDeclaration.name))
+    Print.exactly ("fn " ++ moonbitFnDeclaration.name)
         |> Print.followedBy
             (Print.withIndentIncreasedBy 4
                 (printParenthesized
