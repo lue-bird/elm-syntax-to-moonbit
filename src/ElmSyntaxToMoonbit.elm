@@ -5554,8 +5554,7 @@ modules syntaxDeclarationsIncludingOverwrittenOnes =
                                         specializedName : String
                                         specializedName =
                                             config.inferred.name
-                                                |> moonbitNameWithSpecializedTypes
-                                                    specialization
+                                                |> nameWithSpecializedTypes specialization
 
                                         (Elm.Syntax.Node.Node implementationRange implementation) =
                                             config.syntax.declaration
@@ -5591,7 +5590,7 @@ modules syntaxDeclarationsIncludingOverwrittenOnes =
                                         specializedName : String
                                         specializedName =
                                             config.inferred.name
-                                                |> moonbitNameWithSpecializedTypes
+                                                |> nameWithSpecializedTypes
                                                     specialization
                                     in
                                     { documentation = config.syntax.documentation
@@ -7149,9 +7148,7 @@ valueOrFunctionDeclaration context syntaxDeclarationValueOrFunction =
             in
             if
                 (moonbitFullTypeAsFunction.inputs |> List.isEmpty)
-                    && (-- https://github.com/moonbit-lang/moonbit/issues/113521
-                        moonbitResultType |> moonbitTypeIsConcrete
-                       )
+                    && (moonbitResultType |> moonbitTypeIsConcrete)
             then
                 { parameters = Nothing
                 , resultType = moonbitResultType
@@ -8753,35 +8750,54 @@ expression context expressionTypedNode =
                                                     , inferredType = expressionTypedNode.type_
                                                     , originDeclarationTypeWithExpandedAliases =
                                                         originDeclarationTypeWithExpandedAliases
-                                                    , isLetDeclaredIfConcreteValue =
+                                                    , isLetDeclared =
                                                         -- currently no default declarations are
-                                                        -- lazy be necessity of being recursive and triggering a
+                                                        -- lazy by necessity of being recursive and triggering a
                                                         -- moonbit compile error
-                                                        \() -> True
+                                                        \() ->
+                                                            originDeclarationTypeWithExpandedAliases
+                                                                |> type_
+                                                                    { typeAliasesInModule = typeAliasesInModule
+                                                                    , moonbitEnumTypes = context.moonbitEnumTypes
+                                                                    , isPartOfTypeDeclaration = False
+                                                                    }
+                                                                |> moonbitTypeIsConcrete
                                                     }
 
                                             Nothing ->
                                                 let
+                                                    specializations : FastDict.Dict String MoonbitTypeVariableSpecialization
+                                                    specializations =
+                                                        inferredTypeSpecializedVariablesFrom
+                                                            originDeclarationTypeWithExpandedAliases
+                                                            (expressionTypedNode.type_
+                                                                |> inferredTypeExpandInnerAliases
+                                                                    typeAliasesInModule
+                                                            )
+
                                                     specializedMoonbitName : String
                                                     specializedMoonbitName =
                                                         moonbitName
-                                                            |> moonbitNameWithSpecializedTypes
-                                                                (inferredTypeSpecializedVariablesFrom
-                                                                    originDeclarationTypeWithExpandedAliases
-                                                                    (expressionTypedNode.type_
-                                                                        |> inferredTypeExpandInnerAliases
-                                                                            typeAliasesInModule
-                                                                    )
-                                                                )
+                                                            |> nameWithSpecializedTypes
+                                                                specializations
                                                 in
                                                 moonbitExpressionReferenceDeclaredFnAppliedLazilyOrCurriedIfNecessary context
                                                     { inferredType = expressionTypedNode.type_
                                                     , originDeclarationTypeWithExpandedAliases =
+                                                        -- below is probably more "correct" but in a way irrelevant in practice
+                                                        -- referenceOriginModuleInfo.valueAndFunctionAnnotations
+                                                        --     |> FastDict.get
+                                                        --         (reference.name
+                                                        --             |> nameWithSpecializedTypes specializations
+                                                        --         )
+                                                        --     |> Maybe.withDefault
                                                         originDeclarationTypeWithExpandedAliases
                                                     , qualification = []
                                                     , name = specializedMoonbitName
-                                                    , isLetDeclaredIfConcreteValue =
-                                                        \() -> context.moonbitLets |> FastSet.member moonbitName
+                                                    , isLetDeclared =
+                                                        \() ->
+                                                            context.moonbitLets
+                                                                |> FastSet.member specializedMoonbitName
                                                     }
                 )
 
@@ -9467,7 +9483,7 @@ moonbitExpressionReferenceDeclaredFnAppliedLazilyOrCurriedIfNecessary :
         , name : String
         , inferredType : ElmSyntaxTypeInfer.Type
         , originDeclarationTypeWithExpandedAliases : ElmSyntaxTypeInfer.Type
-        , isLetDeclaredIfConcreteValue : () -> Bool
+        , isLetDeclared : () -> Bool
         }
     -> MoonbitExpression
 moonbitExpressionReferenceDeclaredFnAppliedLazilyOrCurriedIfNecessary context moonbitReference =
@@ -9486,20 +9502,7 @@ moonbitExpressionReferenceDeclaredFnAppliedLazilyOrCurriedIfNecessary context mo
                 |> Maybe.map .typeAliases
     in
     if parameterCount == 0 then
-        let
-            resultMoonbitType : MoonbitType
-            resultMoonbitType =
-                moonbitReference.originDeclarationTypeWithExpandedAliases
-                    |> type_
-                        { typeAliasesInModule = typeAliasesInModule
-                        , moonbitEnumTypes = context.moonbitEnumTypes
-                        , isPartOfTypeDeclaration = False
-                        }
-        in
-        if
-            (resultMoonbitType |> moonbitTypeIsConcrete)
-                && moonbitReference.isLetDeclaredIfConcreteValue ()
-        then
+        if moonbitReference.isLetDeclared () then
             MoonbitExpressionReference
                 { qualification = moonbitReference.qualification
                 , name = moonbitReference.name
@@ -14741,7 +14744,7 @@ inferredTypeUnit =
 {-| moonbit does not have a concept of the following elm types:
 
   - `number` type variable
-  - `{ extendedRecord | some : field }' extended record
+  - `{ extendedRecord | some : field }` extended record
 
 to accommodate, we split elm values/functions that use these in their annotation
 into specialized moonbit functions. For example
@@ -14770,11 +14773,11 @@ for all elm records in types and expressions that contain the field `x`
 These specializations can also stack.
 
 -}
-moonbitNameWithSpecializedTypes :
+nameWithSpecializedTypes :
     FastDict.Dict String MoonbitTypeVariableSpecialization
     -> String
     -> String
-moonbitNameWithSpecializedTypes specializedTypes name =
+nameWithSpecializedTypes specializedTypes name =
     specializedTypes
         |> FastDict.foldl
             (\variable specializedType nameSoFar ->
