@@ -33,7 +33,7 @@ pub fn sample_plus2(n: Double) -> Double {
 
 - not supported are
     - ports that use non-json values like `port sendMessage : String -> Cmd msg`, glsl, phantom types, `==` on a generic value
-    - `elm/file`, `elm/http`, `elm/browser`, `elm-explorations/markdown`, `elm-explorations/webgl`, `elm-explorations/benchmark`, `elm/regex` (because no support in `moonbitlang/core`), `elm-explorations/linear-algebra` (because no support in `moonbitlang/core`). TODO currently also `elm/random`
+    - `elm/file`, `elm/http`, `elm/browser`, `elm-explorations/markdown`, `elm-explorations/webgl`, `elm-explorations/benchmark`, `elm/regex` (because no support in `moonbitlang/core`), `elm-explorations/linear-algebra` (because no support in `moonbitlang/core`)
     - `Task`, `Process`, `Platform.Task`, `Platform.ProcessId`, `Platform.Router`, `Platform.sendToApp`, `Platform.sendToSelf`, `Random.generate`, `Time.now`, `Time.every`, `Time.here`, `Time.getZoneName`, `Bytes.getHostEndianness`
     - extensible record types outside of module-level value/function declarations. For example, these declarations might not work:
         ```elm
@@ -107,6 +107,8 @@ In the transpiled code, you will find these types:
 - elm `String`s (like `"a"`) will be of the custom type `StringString`.
   Create from literals or other string slices with (`StringString::One("a")`). Match with `your_string if string_string_string_equals_stringing(your_string, "some string")`
 - elm records like `{ y : Float, x : Float }` will be of type `GeneratedXY<f64, f64>` with the fields sorted and can be constructed and matched with `{ x: _, y: _ }`. `record.x` access also works
+- elm `List`s will be of type `@list.List`.
+  Create and match with the help of [`@list`/`List::`](https://mooncakes.io/docs/moonbitlang/core/list)
 - elm `Array`s will be of type `@immut/array.Array`.
   Create and match with the helpers in [`@immut/array`](https://mooncakes.io/docs/moonbitlang/core/immut/array)
 - elm `Set`s will be of type `@immut/sorted_set.SortedSet`.
@@ -114,9 +116,9 @@ In the transpiled code, you will find these types:
 - elm `Dict`s will be of type `@immut/sorted_map.SortedMap`.
   Create and match with the helpers in [`@immut/sorted_map`](https://mooncakes.io/docs/moonbitlang/core/immut/sorted_map)
 - elm `Json.Encode.Value`/`Json.Decode.Value`s will be of type `Json`.
-  Create and match with the helpers in [`@json.`/`Json::`](https://mooncakes.io/docs/moonbitlang/core/json)
+  Create and match with the help of [`@json.`/`Json::`](https://mooncakes.io/docs/moonbitlang/core/json)
 - elm `Bytes.Bytes` will be of type `Bytes`.
-  Create and match with the helpers in [`@bytes`/`Bytes::`](https://mooncakes.io/docs/moonbitlang/core/bytes)
+  Create and match with the help of [`@bytes`/`Bytes::`](https://mooncakes.io/docs/moonbitlang/core/bytes)
 - a transpiled elm app does not run itself.
   An elm main `Platform.worker` program type will literally just consist of fields `init`, `update` and `subscriptions` where
   subscriptions/commands are returned as a list of `PlatformSubSingle`/`PlatformCmdSingle` with possible elm subscriptions/commands in a choice type.

@@ -2402,9 +2402,7 @@ pub fn time_to_year(zone : TimeZone, time : TimePosix) -> Int64 {
 }
 
 ///|
-pub fn time_utc() -> TimeZone {
-  TimeZone::Zone(0L, @list.empty())
-}
+pub let time_utc : TimeZone = TimeZone::Zone(0L, @list.empty())
 
 ///|
 pub fn json_encode_encode(indent_size : Int64, json : Json) -> StringString {
@@ -4358,5 +4356,345 @@ fn[State, Result] bytes_decode_loop_from(
             result,
           })
       }
+  }
+}
+
+///|
+pub(all) enum RandomSeed {
+  Seed(Int64, Int64)
+} derive(Eq, Show)
+
+///|
+pub(all) struct RandomGenerator[A] {
+  generate : (RandomSeed) -> (A, RandomSeed)
+}
+
+///|
+pub let random_min_int : Int64 = -2147483648L
+
+///|
+pub let random_max_int : Int64 = 2147483647L
+
+///|
+pub fn[A] random_step(
+  generator : RandomGenerator[A],
+  seed : RandomSeed,
+) -> (A, RandomSeed) {
+  (generator.generate)(seed)
+}
+
+///|
+pub fn random_peel(seed : RandomSeed) -> Int64 {
+  let RandomSeed::Seed(state, _) = seed
+  let word : Int64 = bitwise_xor(
+      state,
+      bitwise_shift_right_zf_by(
+        bitwise_shift_right_zf_by(28L, state) + 4L,
+        state,
+      ),
+    ) *
+    277803737L
+  bitwise_shift_right_zf_by(
+    0L,
+    bitwise_xor(bitwise_shift_right_zf_by(22L, word), word),
+  )
+}
+
+///|
+pub fn random_next(seed : RandomSeed) -> RandomSeed {
+  let RandomSeed::Seed(state0, incr) = seed
+  RandomSeed::Seed(
+    bitwise_shift_right_zf_by(0L, state0 * 1664525L + incr),
+    incr,
+  )
+}
+
+///|
+pub fn random_initial_seed(x : Int64) -> RandomSeed {
+  let RandomSeed::Seed(state1, incr) = random_next(
+    RandomSeed::Seed(0L, 1013904223L),
+  )
+  let state2 : Int64 = bitwise_shift_right_zf_by(0L, state1 + x)
+  random_next(RandomSeed::Seed(state2, incr))
+}
+
+///|
+pub let random_independent_seed : RandomGenerator[RandomSeed] = RandomGenerator::{
+  generate: fn(seed0 : RandomSeed) {
+    fn make_independent_seed(
+      state : Int64,
+      b : Int64,
+      c : Int64,
+    ) -> RandomSeed {
+      random_next(
+        RandomSeed::Seed(
+          state,
+          bitwise_shift_right_zf_by(0L, bitwise_or(1L, bitwise_xor(b, c))),
+        ),
+      )
+    }
+
+    let gen : RandomGenerator[Int64] = random_int(0L, 4294967295L)
+    random_step(random_map3(make_independent_seed, gen, gen, gen), seed0)
+  },
+}
+
+///|
+pub fn[A] random_constant(value : A) -> RandomGenerator[A] {
+  RandomGenerator::{ generate: fn(seed : RandomSeed) { (value, seed) } }
+}
+
+///|
+pub fn[A, B] random_and_then(
+  followup_generator : (A) -> RandomGenerator[B],
+  generator : RandomGenerator[A],
+) -> RandomGenerator[B] {
+  RandomGenerator::{
+    generate: fn(seed : RandomSeed) {
+      let (result, new_seed) = (generator.generate)(seed)
+      (followup_generator(result).generate)(new_seed)
+    },
+  }
+}
+
+///|
+pub fn[A] random_lazy(
+  construct_generator : (Unit) -> RandomGenerator[A],
+) -> RandomGenerator[A] {
+  RandomGenerator::{
+    generate: fn(seed : RandomSeed) { (construct_generator(()).generate)(seed) },
+  }
+}
+
+///|
+pub fn[A, B] random_pair(
+  first_generator : RandomGenerator[A],
+  second_generator : RandomGenerator[B],
+) -> RandomGenerator[(A, B)] {
+  random_map2(fn(a : A, b : B) { (a, b) }, first_generator, second_generator)
+}
+
+///|
+pub fn[A, B] random_map(
+  value_change : (A) -> B,
+  generator : RandomGenerator[A],
+) -> RandomGenerator[B] {
+  RandomGenerator::{
+    generate: fn(seed0 : RandomSeed) {
+      let (a, seed1) = (generator.generate)(seed0)
+      (value_change(a), seed1)
+    },
+  }
+}
+
+///|
+pub fn[A, B, Combined] random_map2(
+  combine : (A, B) -> Combined,
+  a_generator : RandomGenerator[A],
+  b_geenrator : RandomGenerator[B],
+) -> RandomGenerator[Combined] {
+  RandomGenerator::{
+    generate: fn(seed0 : RandomSeed) {
+      let (a, seed1) = (a_generator.generate)(seed0)
+      let (b, seed2) = (b_geenrator.generate)(seed1)
+      (combine(a, b), seed2)
+    },
+  }
+}
+
+///|
+pub fn[A, B, C, Combined] random_map3(
+  combine : (A, B, C) -> Combined,
+  a_generator : RandomGenerator[A],
+  b_geenrator : RandomGenerator[B],
+  c_generator : RandomGenerator[C],
+) -> RandomGenerator[Combined] {
+  RandomGenerator::{
+    generate: fn(seed0 : RandomSeed) {
+      let (a, seed1) = (a_generator.generate)(seed0)
+      let (b, seed2) = (b_geenrator.generate)(seed1)
+      let (c, seed3) = (c_generator.generate)(seed2)
+      (combine(a, b, c), seed3)
+    },
+  }
+}
+
+///|
+pub fn[A, B, C, D, Combined] random_map4(
+  combine : (A, B, C, D) -> Combined,
+  a_generator : RandomGenerator[A],
+  b_geenrator : RandomGenerator[B],
+  c_generator : RandomGenerator[C],
+  d_generator : RandomGenerator[D],
+) -> RandomGenerator[Combined] {
+  RandomGenerator::{
+    generate: fn(seed0 : RandomSeed) {
+      let (a, seed1) = (a_generator.generate)(seed0)
+      let (b, seed2) = (b_geenrator.generate)(seed1)
+      let (c, seed3) = (c_generator.generate)(seed2)
+      let (d, seed4) = (d_generator.generate)(seed3)
+      (combine(a, b, c, d), seed4)
+    },
+  }
+}
+
+///|
+pub fn[A, B, C, D, E, Combined] random_map5(
+  combine : (A, B, C, D, E) -> Combined,
+  a_generator : RandomGenerator[A],
+  b_geenrator : RandomGenerator[B],
+  c_generator : RandomGenerator[C],
+  d_generator : RandomGenerator[D],
+  e_generator : RandomGenerator[E],
+) -> RandomGenerator[Combined] {
+  RandomGenerator::{
+    generate: fn(seed0 : RandomSeed) {
+      let (a, seed1) = (a_generator.generate)(seed0)
+      let (b, seed2) = (b_geenrator.generate)(seed1)
+      let (c, seed3) = (c_generator.generate)(seed2)
+      let (d, seed4) = (d_generator.generate)(seed3)
+      let (e, seed5) = (e_generator.generate)(seed4)
+      (combine(a, b, c, d, e), seed5)
+    },
+  }
+}
+
+///|
+pub fn[A] random_uniform(
+  first : A,
+  others : @list.List[A],
+) -> RandomGenerator[A] {
+  random_weighted((1.0, first), @list.List::map(others, fn(v) { (1.0, v) }))
+}
+
+///|
+pub fn[A] random_weighted(
+  first : (Double, A),
+  others : @list.List[(Double, A)],
+) -> RandomGenerator[A] {
+  fn normalize(weighted : (Double, _)) -> Double {
+    let (weight, _) = weighted
+    Double::abs(weight)
+  }
+
+  let total : Double = normalize(first) +
+    others.iter().map(normalize).fold(init=0.0, Double::add)
+  random_map(
+    fn(generated_float : Double) {
+      random_get_by_weight(first, others, generated_float)
+    },
+    random_float(0.0, total),
+  )
+}
+
+///|
+pub fn[A] random_get_by_weight(
+  first : (Double, A),
+  others : @list.List[(Double, A)],
+  countdown : Double,
+) -> A {
+  let (first_weight, first_value) = first
+  match others {
+    @list.List::Empty => first_value
+    @list.List::More(second, tail=other_others) =>
+      if countdown <= Double::abs(first_weight) {
+        first_value
+      } else {
+        random_get_by_weight(
+          second,
+          other_others,
+          countdown - Double::abs(first_weight),
+        )
+      }
+  }
+}
+
+///|
+pub fn[A] random_list(
+  length : Int64,
+  element_generator : RandomGenerator[A],
+) -> RandomGenerator[@list.List[A]] {
+  RandomGenerator::{
+    generate: fn(seed : RandomSeed) {
+      random_list_help(@list.empty(), length, element_generator.generate, seed)
+    },
+  }
+}
+
+///|
+pub fn[A] random_list_help(
+  reverse_list : @list.List[A],
+  length : Int64,
+  generate : (RandomSeed) -> (A, RandomSeed),
+  seed : RandomSeed,
+) -> (@list.List[A], RandomSeed) {
+  if length < 1L {
+    (reverse_list, seed)
+  } else {
+    let (value, new_seed) = generate(seed)
+    random_list_help(
+      list_cons(value, reverse_list),
+      length - 1L,
+      generate,
+      new_seed,
+    )
+  }
+}
+
+///|
+pub fn random_int(a : Int64, b : Int64) -> RandomGenerator[Int64] {
+  RandomGenerator::{
+    generate: fn(seed0 : RandomSeed) {
+      let (lo, hi) = if a < b { (a, b) } else { (b, a) }
+      let range : Int64 = hi - lo + 1L
+      if bitwise_and(range - 1L, range) == 0L {
+        (
+          bitwise_shift_right_zf_by(
+            0L,
+            bitwise_and(range - 1L, random_peel(seed0)),
+          ) +
+          lo,
+          random_next(seed0),
+        )
+      } else {
+        let threshold : Int64 = bitwise_shift_right_zf_by(
+          0L,
+          basics_remainder_by(range, bitwise_shift_right_zf_by(0L, -range)),
+        )
+        fn account_for_bias(
+          lo : Int64,
+          range : Int64,
+          threshold : Int64,
+          seed : RandomSeed,
+        ) -> (Int64, RandomSeed) {
+          let x : Int64 = random_peel(seed)
+          let seed_n : RandomSeed = random_next(seed)
+          if x < threshold {
+            account_for_bias(lo, range, threshold, seed_n)
+          } else {
+            (basics_remainder_by(range, x) + lo, seed_n)
+          }
+        }
+
+        account_for_bias(lo, range, threshold, seed0)
+      }
+    },
+  }
+}
+
+///|
+pub fn random_float(a : Double, b : Double) -> RandomGenerator[Double] {
+  RandomGenerator::{
+    generate: fn(seed0 : RandomSeed) {
+      let seed1 : RandomSeed = random_next(seed0)
+      let range : Double = Double::abs(b - a)
+      let n1 : Int64 = random_peel(seed1)
+      let n0 : Int64 = random_peel(seed0)
+      let lo : Double = Int64::to_double(bitwise_and(134217727L, n1))
+      let hi : Double = Int64::to_double(bitwise_and(67108863L, n0))
+      let val : Double = (hi * 134217728.0 + lo) / 9007199254740992.0
+      let scaled : Double = val * range + a
+      (scaled, random_next(seed1))
+    },
   }
 }
