@@ -7,4 +7,4 @@ run from a non-integrated terminal or launch your IDE as described in e.g. https
 
 If no window opens at all, you likely still need to install SDL3.
 
-If you still have issues with linking or whatever feel free to open an issue, though I'm not sure I'll know anything you don't :)
+If you still have issues with linking or whatever feel free to open an issue, though I'm not sure I'll know anything more than you do :)
